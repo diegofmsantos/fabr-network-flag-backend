@@ -711,9 +711,8 @@ mainRouter.get('/transferencias-json', (req: Request, res: Response) => {
     }
 });
 
-// Rota para iniciar nova temporada - Versão melhorada
+// Rota para iniciar nova temporada
 mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
-    // Iniciar transação para garantir consistência dos dados
     const result = await prisma.$transaction(async (tx) => {
         try {
             const { ano } = req.params;
@@ -730,6 +729,7 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 capacete?: string;
                 presidente?: string;
                 head_coach?: string;
+                instagram_coach?: string
                 coord_ofen?: string;
                 coord_defen?: string;
             }
@@ -747,34 +747,25 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 novaCamisa?: string;
             }
 
-            console.log(`Iniciando criação da temporada ${ano} baseada em ${anoAnterior}`);
-
-            // 1. Obter todos os times da temporada anterior
             const timesAnoAnterior = await tx.time.findMany({
                 where: { temporada: anoAnterior },
             });
-
-            console.log(`Times encontrados na temporada anterior: ${timesAnoAnterior.length}`);
 
             if (timesAnoAnterior.length === 0) {
                 throw new Error(`Nenhum time encontrado na temporada ${anoAnterior}`);
             }
 
-            // 2. Mapeamento dos IDs antigos para os novos e nomes antigos para novos
             const mapeamentoIds = new Map();
-            const mapeamentoNomes = new Map(); // Para rastrear mudanças de nome
+            const mapeamentoNomes = new Map(); 
 
-            // 3. Criar novos times para a nova temporada
             const timesNovos = [];
             for (const time of timesAnoAnterior) {
                 const timeId = time.id;
-                const nomeAntigo = time.nome; // Guardar nome antigo
+                const nomeAntigo = time.nome; 
 
-                // Verificar se o time sofrerá alterações
                 const timeChanges: TimeChange[] = req.body.timeChanges || [];
                 const timeChange = timeChanges.find((tc: TimeChange) => tc.timeId === timeId);
 
-                // Nome do time na nova temporada
                 const nomeNovo = timeChange?.nome || time.nome;
 
                 const novoTime = await tx.time.create({
@@ -800,10 +791,8 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                     },
                 });
 
-                // Guardar mapeamento entre ID antigo e novo
                 mapeamentoIds.set(timeId, novoTime.id);
 
-                // Guardar mapeamento entre nome antigo e novo se houver mudança
                 if (nomeAntigo !== nomeNovo) {
                     mapeamentoNomes.set(nomeAntigo, {
                         novoNome: nomeNovo,
@@ -812,50 +801,33 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 }
 
                 timesNovos.push(novoTime);
-                console.log(`Time criado: ${nomeAntigo} -> ${nomeNovo} (ID: ${timeId} -> ${novoTime.id})`);
             }
 
-            console.log(`Novos times criados: ${timesNovos.length}`);
-            console.log(`Mapeamento de IDs criado: ${mapeamentoIds.size} times`);
-
-            // 4. Obter todas as relações jogador-time do ano anterior
             const jogadoresTimesAnoAnterior = await tx.jogadorTime.findMany({
                 where: { temporada: anoAnterior },
                 include: { jogador: true, time: true },
             });
 
-            console.log(`Relações jogador-time a processar: ${jogadoresTimesAnoAnterior.length}`);
-
-            // 5. Conjunto para rastrear jogadores já processados
             const jogadoresProcessados = new Set<number>();
 
-            // 6. Processar as transferências
             const transferencias = req.body.transferencias || [];
-            console.log(`Processando ${transferencias.length} transferências para salvar em JSON`);
-
 
             for (const transferencia of transferencias) {
                 try {
                     const jogadorId = transferencia.jogadorId;
-                    console.log(`Processando transferência para jogador ID: ${jogadorId}`);
 
-                    // Verificar se já foi processado
                     if (jogadoresProcessados.has(jogadorId)) {
-                        console.log(`Jogador ${jogadorId} já processado, pulando.`);
                         continue;
                     }
 
-                    // Encontrar o jogador
                     const jogador = await tx.jogador.findUnique({
                         where: { id: jogadorId }
                     });
 
                     if (!jogador) {
-                        console.error(`Jogador ID ${jogadorId} não encontrado, pulando.`);
                         continue;
                     }
 
-                    // Encontrar relação atual
                     const relacaoAtual = await tx.jogadorTime.findFirst({
                         where: {
                             jogadorId: jogadorId,
@@ -865,11 +837,9 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                     });
 
                     if (!relacaoAtual) {
-                        console.error(`Relação atual não encontrada para jogador ${jogadorId}, pulando.`);
                         continue;
                     }
 
-                    // Encontrar time de destino - primeiro pelo ID
                     let timeDestino = null;
 
                     if (transferencia.novoTimeId) {
@@ -878,11 +848,9 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             timeDestino = await tx.time.findUnique({
                                 where: { id: novoId }
                             });
-                            console.log(`Time destino encontrado pelo ID mapeado: ${novoId}`);
                         }
                     }
 
-                    // Se não encontrar pelo ID, tenta pelo nome
                     if (!timeDestino && transferencia.novoTimeNome) {
                         timeDestino = await tx.time.findFirst({
                             where: {
@@ -892,11 +860,9 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         });
 
                         if (timeDestino) {
-                            console.log(`Time destino encontrado pelo nome: ${transferencia.novoTimeNome}`);
                         }
                     }
 
-                    // Se ainda não encontrou, tenta pela correspondência de nome
                     if (!timeDestino && transferencia.novoTimeNome) {
                         for (const [antigo, info] of mapeamentoNomes.entries()) {
                             if (info.novoNome === transferencia.novoTimeNome) {
@@ -904,7 +870,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                                     where: { id: info.novoId }
                                 });
                                 if (timeDestino) {
-                                    console.log(`Time destino encontrado pelo mapeamento de nomes: ${info.novoNome}`);
                                     break;
                                 }
                             }
@@ -912,11 +877,9 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                     }
 
                     if (!timeDestino) {
-                        console.error(`Time destino não encontrado para: ${transferencia.novoTimeNome || transferencia.novoTimeId}`);
                         continue;
                     }
 
-                    // Atualizar posição e setor se necessário
                     if (transferencia.novaPosicao || transferencia.novoSetor) {
                         const dadosAtualizacao: { posicao?: string, setor?: string } = {};
 
@@ -927,10 +890,8 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             where: { id: jogadorId },
                             data: dadosAtualizacao
                         });
-                        console.log(`Jogador ${jogadorId} atualizado com novos dados: ${JSON.stringify(dadosAtualizacao)}`);
                     }
 
-                    // Criar novo vínculo
                     const novoVinculo = await tx.jogadorTime.create({
                         data: {
                             jogadorId: jogadorId,
@@ -942,9 +903,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         }
                     });
 
-                    console.log(`Novo vínculo criado: jogador=${jogadorId}, time=${timeDestino.id}, temporada=${ano}`);
-
-                    // Marcar como processado
                     jogadoresProcessados.add(jogadorId);
 
                 } catch (error) {
@@ -952,20 +910,16 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 }
             }
 
-            // 7. Processar jogadores que não foram transferidos
-            console.log(`Processando jogadores não transferidos...`);
             let jogadoresRegularesProcessados = 0;
 
             for (const jt of jogadoresTimesAnoAnterior) {
                 try {
                     const jogadorId = jt.jogadorId;
 
-                    // Pular jogadores já processados em transferências
                     if (jogadoresProcessados.has(jogadorId)) {
                         continue;
                     }
 
-                    // Obter novo ID do time
                     const timeOriginalId = jt.timeId;
                     const novoTimeId = mapeamentoIds.get(timeOriginalId);
 
@@ -974,7 +928,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         continue;
                     }
 
-                    // Criar novo vínculo mantendo o mesmo time
                     await tx.jogadorTime.create({
                         data: {
                             jogadorId: jogadorId,
@@ -982,13 +935,12 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             temporada: ano,
                             numero: jt.numero,
                             camisa: jt.camisa,
-                            estatisticas: {} // Estatísticas zeradas para nova temporada
+                            estatisticas: {} 
                         }
                     });
 
                     jogadoresRegularesProcessados++;
 
-                    // IMPORTANTE: Marcar jogador como processado para evitar duplicações
                     jogadoresProcessados.add(jogadorId);
 
                 } catch (error) {
@@ -996,7 +948,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 }
             }
 
-            console.log(`Jogadores regulares processados: ${jogadoresRegularesProcessados}`);
 
             const saveTransferenciasToJson = async (
                 transferencias: Transferencia[],
@@ -1004,20 +955,16 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 anoDestino: string
             ): Promise<number> => {
                 try {
-                    // Caminho para o diretório 'public/data'
                     const dirPath = path.join(process.cwd(), 'public', 'data');
 
-                    // Verificar se o diretório existe e criar se não existir
                     if (!fs.existsSync(dirPath)) {
                         console.log(`Criando diretório: ${dirPath}`);
                         fs.mkdirSync(dirPath, { recursive: true });
                     }
 
-                    // Formatar as transferências com informações completas
                     const transferenciasFormatadas = [];
 
                     for (const transferencia of transferencias) {
-                        // Buscar informações dos times e jogador
                         const jogador = await prisma.jogador.findUnique({
                             where: { id: transferencia.jogadorId }
                         });
@@ -1030,7 +977,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             where: { id: transferencia.novoTimeId }
                         });
 
-                        // Adicionar à lista formatada
                         transferenciasFormatadas.push({
                             id: transferencia.jogadorId,
                             jogadorNome: jogador?.nome || transferencia.jogadorNome,
@@ -1048,11 +994,9 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         });
                     }
 
-                    // Caminho completo do arquivo
                     const filePath = path.join(dirPath, `transferencias_${anoOrigem}_${anoDestino}.json`);
                     console.log(`Salvando transferências em: ${filePath}`);
 
-                    // Salvar no arquivo
                     fs.writeFileSync(filePath, JSON.stringify(transferenciasFormatadas, null, 2));
                     console.log(`${transferenciasFormatadas.length} transferências salvas com sucesso em ${filePath}`);
                     return transferenciasFormatadas.length;
@@ -1064,7 +1008,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
 
             const totalSalvo = await saveTransferenciasToJson(transferencias, anoAnterior, ano);
             console.log(`Total de ${totalSalvo} transferências salvas em JSON`);
-            // 8. Contagem final
             const jogadoresNovaTemporada = await tx.jogadorTime.count({
                 where: { temporada: ano }
             });
@@ -1080,11 +1023,10 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
 
         } catch (error) {
             console.error(`Erro ao iniciar temporada:`, error);
-            throw error; // Isso fará com que a transação seja revertida
+            throw error; 
         }
     }, {
-        // Opções de transação, se necessário ajustar o timeout
-        timeout: 120000, // 60 segundos para execução completa
+        timeout: 120000, 
     });
 
     res.status(200).json(result);
