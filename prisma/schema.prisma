@@ -14,19 +14,11 @@ model Time {
   cor             String
   cidade          String
   bandeira_estado String
-  fundacao        String
-  logo            String
-  capacete        String
   instagram       String
   instagram2      String
-  estadio         String
-  presidente      String
+  logo            String
   head_coach      String
-  instagram_coach String
-  coord_ofen      String
-  coord_defen     String
-  titulos         Json
-  temporada       String // Novo campo para temporada "2024", "2025", etc.
+  temporada       String        // "2024", "2025", etc.
   jogadores       JogadorTime[]
 
   @@unique([sigla, temporada]) // Garante que não haverá times com a mesma sigla na mesma temporada
@@ -35,17 +27,12 @@ model Time {
 model Jogador {
   id            Int           @id @default(autoincrement())
   nome          String
-  posicao       String
-  setor         String
-  experiencia   Int
   idade         Int
   altura        Float
   peso          Float
   instagram     String
   instagram2    String
   cidade        String
-  nacionalidade String
-  timeFormador  String
   times         JogadorTime[] // Relação com times por temporada
 }
 
@@ -56,23 +43,10 @@ model JogadorTime {
   temporada    String // "2024", "2025", etc.
   numero       Int
   camisa       String
-  estatisticas Json // Mantém sua estrutura atual de estatísticas
+  estatisticas Json   // Estatísticas simplificadas para flag football
 
   jogador Jogador @relation(fields: [jogadorId], references: [id])
   time    Time    @relation(fields: [timeId], references: [id])
 
   @@unique([jogadorId, timeId, temporada])
-}
-
-model Materia {
-  id         Int      @id @default(autoincrement())
-  titulo     String
-  subtitulo  String
-  imagem     String
-  legenda    String?
-  texto      String   @db.Text
-  autor      String
-  autorImage String
-  createdAt  DateTime
-  updatedAt  DateTime
 }

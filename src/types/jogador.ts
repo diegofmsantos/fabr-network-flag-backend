@@ -1,5 +1,5 @@
 export type Estatisticas = {
-  passe?: {
+  ataque?: {
     passes_completos?: number
     passes_tentados?: number
     td_passado?: number
@@ -12,10 +12,10 @@ export type Estatisticas = {
     td_recebido?: number
   }
   defesa?: {
-    sack: number
-    pressao: number
-    flag_retirada: number
-    flag_perdida: number
+    sack?: number
+    pressao?: number
+    flag_retirada?: number
+    flag_perdida?: number
     interceptacao_forcada?: number
     passe_desviado?: number
     td_defensivo?: number

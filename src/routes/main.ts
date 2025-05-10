@@ -15,7 +15,7 @@ mainRouter.get('/times', async (req, res) => {
     console.log('Rota /api/times chamada')
     try {
         const { temporada } = req.query
-        const temporadaFiltro = temporada ? String(temporada) : '2024' // Default para 2024 se não especificado
+        const temporadaFiltro = temporada ? String(temporada) : '2025' // Default para 2025 se não especificado
 
         const times = await prisma.time.findMany({
             where: { temporada: temporadaFiltro },
@@ -60,19 +60,11 @@ mainRouter.post('/time', async (req, res) => {
                 cor: teamData.cor || '',
                 cidade: teamData.cidade || '',
                 bandeira_estado: teamData.bandeira_estado || '',
-                fundacao: teamData.fundacao || '',
-                logo: teamData.logo || '',
-                capacete: teamData.capacete || '',
                 instagram: teamData.instagram || '',
                 instagram2: teamData.instagram2 || '',
-                estadio: teamData.estadio || '',
-                presidente: teamData.presidente || '',
+                logo: teamData.logo || '',
                 head_coach: teamData.head_coach || '',
-                instagram_coach: teamData.instagram_coach || '',
-                coord_ofen: teamData.coord_ofen || '',
-                coord_defen: teamData.coord_defen || '',
-                titulos: teamData.titulos || [],
-                temporada: teamData.temporada || '2024', // Adiciona temporada com valor padrão
+                temporada: teamData.temporada || '2025', // Adiciona temporada com valor padrão
             },
         })
 
@@ -83,17 +75,12 @@ mainRouter.post('/time', async (req, res) => {
                 const jogadorCriado = await prisma.jogador.create({
                     data: {
                         nome: player.nome || '',
-                        timeFormador: player.timeFormador || '',
-                        posicao: player.posicao || '',
-                        setor: player.setor || 'Ataque',
-                        experiencia: player.experiencia || 0,
                         idade: player.idade || 0,
                         altura: player.altura || 0,
                         peso: player.peso || 0,
                         instagram: player.instagram || '',
                         instagram2: player.instagram2 || '',
                         cidade: player.cidade || '',
-                        nacionalidade: player.nacionalidade || '',
                     },
                 })
 
@@ -102,7 +89,7 @@ mainRouter.post('/time', async (req, res) => {
                     data: {
                         jogadorId: jogadorCriado.id,
                         timeId: createdTeam.id,
-                        temporada: teamData.temporada || '2024',
+                        temporada: teamData.temporada || '2025',
                         numero: player.numero || 0,
                         camisa: player.camisa || '',
                         estatisticas: player.estatisticas || {},
@@ -187,7 +174,7 @@ mainRouter.delete('/time/:id', async (req: Request<{ id: string }>, res: Respons
 mainRouter.get('/jogadores', async (req, res) => {
     try {
         const {
-            temporada = '2024',
+            temporada = '2025',
             timeId,
             includeAllTemporadas = false
         } = req.query;
@@ -286,7 +273,7 @@ mainRouter.get('/jogador/:id/temporada/:ano', async (req: Request, res: Response
 
         if (isNaN(jogadorId)) {
             res.status(400).json({ error: 'ID do jogador inválido' });
-            return; // **Adicionado para evitar execução contínua**
+            return;
         }
 
         const jogadorTime = await prisma.jogadorTime.findFirst({
@@ -302,7 +289,7 @@ mainRouter.get('/jogador/:id/temporada/:ano', async (req: Request, res: Response
 
         if (!jogadorTime) {
             res.status(404).json({ error: 'Jogador não encontrado nesta temporada' });
-            return; // **Adicionado para evitar execução contínua**
+            return;
         }
 
         res.status(200).json({
@@ -312,19 +299,19 @@ mainRouter.get('/jogador/:id/temporada/:ano', async (req: Request, res: Response
             numero: jogadorTime.numero,
             camisa: jogadorTime.camisa,
         });
-        return; // **Garantindo que a execução pare aqui**
+        return;
 
     } catch (error) {
         console.error('Erro ao buscar jogador:', error);
         res.status(500).json({ error: 'Erro ao buscar jogador' });
-        return; // **Finalizando o fluxo no catch**
+        return;
     }
 });
 
 // Rota para adicionar um jogador a um time
 mainRouter.post('/jogador', async (req, res) => {
     try {
-        const { temporada = '2024', ...jogadorRawData } = req.body;
+        const { temporada = '2025', ...jogadorRawData } = req.body;
         const jogadorData = JogadorSchema.parse(jogadorRawData);
 
         const estatisticas = jogadorData.estatisticas ?? {};
@@ -349,17 +336,12 @@ mainRouter.post('/jogador', async (req, res) => {
         const jogadorCriado = await prisma.jogador.create({
             data: {
                 nome: jogadorData.nome ?? '',
-                posicao: jogadorData.posicao ?? '',
-                setor: jogadorData.setor ?? 'Ataque',
-                experiencia: jogadorData.experiencia ?? 0,
                 idade: jogadorData.idade ?? 0,
                 altura: jogadorData.altura ?? 0,
                 peso: jogadorData.peso ?? 0,
                 instagram: jogadorData.instagram ?? '',
                 instagram2: jogadorData.instagram2 ?? '',
                 cidade: jogadorData.cidade ?? '',
-                nacionalidade: jogadorData.nacionalidade ?? '',
-                timeFormador: jogadorData.timeFormador ?? '',
             },
         });
 
@@ -408,7 +390,6 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
         }
         if (dadosJogador.peso !== undefined) dadosJogador.peso = Number(dadosJogador.peso);
         if (dadosJogador.idade !== undefined) dadosJogador.idade = Number(dadosJogador.idade);
-        if (dadosJogador.experiencia !== undefined) dadosJogador.experiencia = Number(dadosJogador.experiencia);
 
         // Atualiza os dados básicos do jogador
         const updatedJogador = await prisma.jogador.update({
@@ -488,178 +469,6 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
     }
 });
 
-
-
-// Rota para obter todas as matérias
-mainRouter.get('/materias', async (req, res) => {
-    try {
-        const materias = await prisma.materia.findMany({
-            orderBy: {
-                createdAt: 'desc'
-            }
-        });
-        res.status(200).json(materias)
-    } catch (error) {
-        console.error('Erro ao buscar as matérias:', error)
-        res.status(500).json({ error: 'Erro ao buscar as matérias' })
-    }
-})
-
-// Rota para criar matéria
-mainRouter.post('/materias', async (req, res) => {
-    try {
-        const materiaData = req.body;
-
-        const createdMateria = await prisma.materia.create({
-            data: {
-                titulo: materiaData.titulo,
-                subtitulo: materiaData.subtitulo,
-                imagem: materiaData.imagem,
-                legenda: materiaData.legenda,
-                texto: materiaData.texto,
-                autor: materiaData.autor,
-                autorImage: materiaData.autorImage,
-                createdAt: new Date(materiaData.createdAt),
-                updatedAt: new Date(materiaData.updatedAt)
-            }
-        });
-
-        res.status(201).json(createdMateria);
-    } catch (error) {
-        console.error('Erro ao criar matéria:', error);
-        res.status(500).json({
-            error: error instanceof Error ? error.message : 'Erro desconhecido'
-        });
-    }
-});
-
-// Rota para atualizar matéria
-mainRouter.put('/materias/:id', async (req, res) => {
-    const { id } = req.params;
-    const materiaData = req.body;
-
-    try {
-        const updatedMateria = await prisma.materia.update({
-            where: { id: parseInt(id) },
-            data: {
-                ...materiaData,
-                createdAt: new Date(materiaData.createdAt),
-                updatedAt: new Date(materiaData.updatedAt)
-            }
-        });
-
-        res.status(200).json(updatedMateria);
-    } catch (error) {
-        console.error('Erro ao atualizar matéria:', error);
-        res.status(500).json({ error: 'Erro ao atualizar matéria' });
-    }
-});
-
-// Rota para deletar uma matéria
-mainRouter.delete('/materia/:id', async (req, res) => {
-    try {
-        const id = parseInt(req.params.id, 10)
-
-        if (isNaN(id)) {
-            res.status(400).json({ error: "ID inválido" })
-            return
-        }
-
-        const existingMateria = await prisma.materia.findUnique({
-            where: { id }
-        })
-        if (!existingMateria) {
-            res.status(404).json({ error: "Matéria não encontrada" })
-            return
-        }
-
-        await prisma.materia.delete({
-            where: { id }
-        })
-
-        res.status(200).json({ message: "Matéria excluída com sucesso!" })
-    } catch (error) {
-        console.error("Erro ao excluir matéria:", error)
-        res.status(500).json({ error: "Erro ao excluir matéria" })
-    }
-})
-
-// Rota para importar dados do arquivo Times
-mainRouter.post('/importar-dados', async (req, res) => {
-    try {
-        const teamsData = Times
-        const createdTeams = []
-
-        for (const teamData of teamsData) {
-            // Cria o time
-            const createdTeam = await prisma.time.create({
-                data: {
-                    nome: teamData.nome || '',
-                    sigla: teamData.sigla || '',
-                    cor: teamData.cor || '',
-                    cidade: teamData.cidade || '',
-                    bandeira_estado: teamData.bandeira_estado || '',
-                    fundacao: teamData.fundacao || '',
-                    logo: teamData.logo || '',
-                    capacete: teamData.capacete || '',
-                    instagram: teamData.instagram || '',
-                    instagram2: teamData.instagram2 || '',
-                    estadio: teamData.estadio || '',
-                    presidente: teamData.presidente || '',
-                    head_coach: teamData.head_coach || '',
-                    instagram_coach: teamData.instagram_coach || '',
-                    coord_ofen: teamData.coord_ofen || '',
-                    coord_defen: teamData.coord_defen || '',
-                    titulos: teamData.titulos || [],
-                    temporada: teamData.temporada || '2024',
-                },
-            })
-
-            createdTeams.push(createdTeam)
-
-            // Cria os jogadores e seus vínculos
-            if (teamData.jogadores && teamData.jogadores.length > 0) {
-                for (const player of teamData.jogadores) {
-                    // Primeiro, cria o jogador
-                    const jogadorCriado = await prisma.jogador.create({
-                        data: {
-                            nome: player.nome || '',
-                            timeFormador: player.timeFormador || '',
-                            posicao: player.posicao || '',
-                            setor: player.setor || 'Ataque',
-                            experiencia: player.experiencia || 0,
-                            idade: player.idade || 0,
-                            altura: player.altura || 0,
-                            peso: player.peso || 0,
-                            instagram: player.instagram || '',
-                            instagram2: player.instagram2 || '',
-                            cidade: player.cidade || '',
-                            nacionalidade: player.nacionalidade || '',
-                        },
-                    })
-
-                    // Depois, cria o vínculo entre jogador e time
-                    await prisma.jogadorTime.create({
-                        data: {
-                            jogadorId: jogadorCriado.id,
-                            timeId: createdTeam.id,
-                            temporada: teamData.temporada || '2024',
-                            numero: player.numero || 0,
-                            camisa: player.camisa || '',
-                            estatisticas: player.estatisticas || {},
-                        },
-                    })
-                }
-            }
-        }
-
-        res.status(201).json({ message: 'Dados importados com sucesso!', teams: createdTeams.length })
-    } catch (error) {
-        console.error('Erro ao importar os dados:', error)
-        res.status(500).json({ error: 'Erro ao importar os dados' })
-    }
-})
-
 // Rota para obter transferências a partir do arquivo JSON
 mainRouter.get('/transferencias-json', (req: Request, res: Response) => {
     try {
@@ -726,12 +535,7 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 instagram?: string;
                 instagram2?: string;
                 logo?: string;
-                capacete?: string;
-                presidente?: string;
                 head_coach?: string;
-                instagram_coach?: string
-                coord_ofen?: string;
-                coord_defen?: string;
             }
 
             interface Transferencia {
@@ -741,8 +545,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 timeOrigemNome?: string;
                 novoTimeId: number;
                 novoTimeNome?: string;
-                novaPosicao?: string;
-                novoSetor?: string;
                 novoNumero?: number;
                 novaCamisa?: string;
             }
@@ -756,12 +558,12 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
             }
 
             const mapeamentoIds = new Map();
-            const mapeamentoNomes = new Map(); 
+            const mapeamentoNomes = new Map();
 
             const timesNovos = [];
             for (const time of timesAnoAnterior) {
                 const timeId = time.id;
-                const nomeAntigo = time.nome; 
+                const nomeAntigo = time.nome;
 
                 const timeChanges: TimeChange[] = req.body.timeChanges || [];
                 const timeChange = timeChanges.find((tc: TimeChange) => tc.timeId === timeId);
@@ -775,18 +577,10 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         cor: timeChange?.cor || time.cor,
                         cidade: time.cidade,
                         bandeira_estado: time.bandeira_estado,
-                        fundacao: time.fundacao,
-                        logo: timeChange?.logo || time.logo,
-                        capacete: timeChange?.capacete || time.capacete,
                         instagram: timeChange?.instagram || time.instagram,
                         instagram2: timeChange?.instagram2 || time.instagram2,
-                        estadio: time.estadio,
-                        presidente: timeChange?.presidente || time.presidente,
+                        logo: timeChange?.logo || time.logo,
                         head_coach: timeChange?.head_coach || time.head_coach,
-                        instagram_coach: time.instagram_coach,
-                        coord_ofen: timeChange?.coord_ofen || time.coord_ofen,
-                        coord_defen: timeChange?.coord_defen || time.coord_defen,
-                        titulos: time.titulos as any,
                         temporada: ano,
                     },
                 });
@@ -858,9 +652,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                                 temporada: ano
                             }
                         });
-
-                        if (timeDestino) {
-                        }
                     }
 
                     if (!timeDestino && transferencia.novoTimeNome) {
@@ -878,18 +669,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
 
                     if (!timeDestino) {
                         continue;
-                    }
-
-                    if (transferencia.novaPosicao || transferencia.novoSetor) {
-                        const dadosAtualizacao: { posicao?: string, setor?: string } = {};
-
-                        if (transferencia.novaPosicao) dadosAtualizacao.posicao = transferencia.novaPosicao;
-                        if (transferencia.novoSetor) dadosAtualizacao.setor = transferencia.novoSetor;
-
-                        await tx.jogador.update({
-                            where: { id: jogadorId },
-                            data: dadosAtualizacao
-                        });
                     }
 
                     const novoVinculo = await tx.jogadorTime.create({
@@ -935,7 +714,7 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             temporada: ano,
                             numero: jt.numero,
                             camisa: jt.camisa,
-                            estatisticas: {} 
+                            estatisticas: {}
                         }
                     });
 
@@ -986,8 +765,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             timeDestinoId: transferencia.novoTimeId,
                             timeDestinoNome: timeDestino?.nome || transferencia.novoTimeNome,
                             timeDestinoSigla: timeDestino?.sigla || '',
-                            novaPosicao: transferencia.novaPosicao || null,
-                            novoSetor: transferencia.novoSetor || null,
                             novoNumero: transferencia.novoNumero || null,
                             novaCamisa: transferencia.novaCamisa || null,
                             data: new Date().toISOString()
@@ -1016,20 +793,83 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
 
             return {
                 message: `Temporada ${ano} iniciada com sucesso!`,
-                times: 0, // Substitua pelo número real
-                jogadores: 0, // Substitua pelo número real
+                times: timesNovos.length,
+                jogadores: jogadoresNovaTemporada,
                 transferencias: totalSalvo
             };
 
         } catch (error) {
             console.error(`Erro ao iniciar temporada:`, error);
-            throw error; 
+            throw error;
         }
     }, {
-        timeout: 120000, 
+        timeout: 120000,
     });
 
     res.status(200).json(result);
 });
+
+// Rota para importar dados do arquivo Times
+mainRouter.post('/importar-dados', async (req, res) => {
+    try {
+        const teamsData = Times
+        const createdTeams = []
+
+        for (const teamData of teamsData) {
+            // Cria o time
+            const createdTeam = await prisma.time.create({
+                data: {
+                    nome: teamData.nome || '',
+                    sigla: teamData.sigla || '',
+                    cor: teamData.cor || '',
+                    cidade: teamData.cidade || '',
+                    bandeira_estado: teamData.bandeira_estado || '',
+                    instagram: teamData.instagram || '',
+                    instagram2: teamData.instagram2 || '',
+                    logo: teamData.logo || '',
+                    head_coach: teamData.head_coach || '',
+                    temporada: teamData.temporada || '2025',
+                },
+            })
+
+            createdTeams.push(createdTeam)
+
+            // Cria os jogadores e seus vínculos
+            if (teamData.jogadores && teamData.jogadores.length > 0) {
+                for (const player of teamData.jogadores) {
+                    // Primeiro, cria o jogador
+                    const jogadorCriado = await prisma.jogador.create({
+                        data: {
+                            nome: player.nome || '',
+                            idade: player.idade || 0,
+                            altura: player.altura || 0,
+                            peso: player.peso || 0,
+                            instagram: player.instagram || '',
+                            instagram2: player.instagram2 || '',
+                            cidade: player.cidade || '',
+                        },
+                    })
+
+                    // Depois, cria o vínculo entre jogador e time
+                    await prisma.jogadorTime.create({
+                        data: {
+                            jogadorId: jogadorCriado.id,
+                            timeId: createdTeam.id,
+                            temporada: teamData.temporada || '2025',
+                            numero: player.numero || 0,
+                            camisa: player.camisa || '',
+                            estatisticas: player.estatisticas || {},
+                        },
+                    })
+                }
+            }
+        }
+
+        res.status(201).json({ message: 'Dados importados com sucesso!', teams: createdTeams.length })
+    } catch (error) {
+        console.error('Erro ao importar os dados:', error)
+        res.status(500).json({ error: 'Erro ao importar os dados' })
+    }
+})
 
 export default mainRouter

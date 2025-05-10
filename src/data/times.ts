@@ -25,9 +25,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-47.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 11,
                         passes_tentados: 18,
                         td_passado: 3,
@@ -61,9 +61,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-15.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 1,
                         passes_tentados: 5,
                         td_passado: 0,
@@ -97,9 +97,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-17.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 1,
                         passes_tentados: 1,
                         td_passado: 1,
@@ -133,9 +133,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-23.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -169,9 +169,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com/lucasmiranda.88/',
                 instagram2: '@lucasmiranda.88',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-34.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -205,9 +205,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com/gmarques52/',
                 instagram2: '@gmarques52',
                 cidade: "Icó/CE",
-                camisa: "camisa-fortaleza-tritoes-52.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -241,9 +241,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com/1soniic1/',
                 instagram2: '@1soniic1',
                 cidade: "Icó/CE",
-                camisa: "camisa-fortaleza-tritoes-52.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -277,9 +277,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-3.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -313,9 +313,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com/jabesofheaven/',
                 instagram2: '@jabesofheaven',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-28.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -349,9 +349,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-9.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -385,9 +385,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-41.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -421,9 +421,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com/lvcasnp/',
                 instagram2: '@lvcasnp',
                 cidade: "Belém/PA",
-                camisa: "camisa-fortaleza-tritoes-26.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -457,9 +457,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-39.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
@@ -493,9 +493,9 @@ export const Times: Time[] = [
                 instagram: 'https://www.instagram.com//',
                 instagram2: '@',
                 cidade: "Fortaleza/CE",
-                camisa: "camisa-fortaleza-tritoes-5.png",
+                camisa: "camisa-teste-flag.png",
                 estatisticas: {
-                    passe: {
+                    ataque: {
                         passes_completos: 0,
                         passes_tentados: 0,
                         td_passado: 0,
