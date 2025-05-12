@@ -17,35 +17,35 @@ model Time {
   instagram       String
   instagram2      String
   logo            String
-  temporada       String        // "2024", "2025", etc.
+  temporada       String
   jogadores       JogadorTime[]
 
   @@unique([sigla, temporada]) // Garante que não haverá times com a mesma sigla na mesma temporada
 }
 
 model Jogador {
-  id            Int           @id @default(autoincrement())
-  nome          String
-  idade         Int
-  altura        Float
-  peso          Float
-  instagram     String
-  instagram2    String
-  cidade        String
-  times         JogadorTime[] // Relação com times por temporada
+  id        Int           @id @default(autoincrement())
+  nome      String
+  times     JogadorTime[] // Relação com times por temporada
 }
 
 model JogadorTime {
   id           Int    @id @default(autoincrement())
   jogadorId    Int
   timeId       Int
-  temporada    String // "2024", "2025", etc.
+  temporada    String
   numero       Int
   camisa       String
-  estatisticas Json   // Estatísticas simplificadas para flag football
+  estatisticas Json // Estatísticas simplificadas para flag football
 
   jogador Jogador @relation(fields: [jogadorId], references: [id])
   time    Time    @relation(fields: [timeId], references: [id])
 
   @@unique([jogadorId, timeId, temporada])
+}
+
+model MetaDados {
+  id    Int    @id @default(autoincrement())
+  chave String @unique
+  valor String @db.Text
 }

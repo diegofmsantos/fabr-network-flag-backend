@@ -27,15 +27,6 @@ export const EstatisticasSchema = z.object({
 export const JogadorSchema = z.object({
     id: z.number().optional(),
     nome: z.string().optional(),
-    time: z.string().optional(),
     timeId: z.number().optional(),
-    numero: z.number().optional(),
-    idade: z.number().optional(),
-    altura: z.number().optional(),
-    peso: z.number().optional(),
-    instagram: z.string().optional(),
-    instagram2: z.string().optional(),
-    cidade: z.string().optional(),
-    camisa: z.string().optional(),
     estatisticas: EstatisticasSchema.optional(),
 })

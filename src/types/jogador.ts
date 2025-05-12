@@ -25,15 +25,6 @@ export type Estatisticas = {
 export type Jogador = {
   id?: number
   nome?: string
-  time?: string
   timeId?: number
-  numero?: number
-  idade?: number
-  altura?: number
-  peso?: number
-  instagram?: string
-  instagram2?: string
-  cidade?: string
-  camisa?: string
   estatisticas?: Estatisticas
 }
