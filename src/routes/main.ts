@@ -63,7 +63,6 @@ mainRouter.post('/time', async (req, res) => {
                 instagram: teamData.instagram || '',
                 instagram2: teamData.instagram2 || '',
                 logo: teamData.logo || '',
-                head_coach: teamData.head_coach || '',
                 temporada: teamData.temporada || '2025', // Adiciona temporada com valor padrão
             },
         })
@@ -469,6 +468,229 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
     }
 });
 
+// Rota para comparar dois times
+mainRouter.get('/comparar-times', async function(req: Request, res: Response) {
+  try {
+    const time1Id = req.query.time1Id as string;
+    const time2Id = req.query.time2Id as string;
+    const temporada = (req.query.temporada as string) || '2025';
+    
+    // Validar parâmetros
+    if (!time1Id || !time2Id) {
+      res.status(400).json({ error: 'É necessário fornecer IDs de dois times diferentes' });
+      return;
+    }
+    
+    if (time1Id === time2Id) {
+      res.status(400).json({ error: 'Os times precisam ser diferentes para comparação' });
+      return;
+    }
+
+    // Buscar dados dos times
+    const [time1, time2] = await Promise.all([
+      prisma.time.findUnique({
+        where: { id: Number(time1Id) },
+        include: {
+          jogadores: {
+            where: { temporada: temporada },
+            include: { jogador: true }
+          }
+        }
+      }),
+      prisma.time.findUnique({
+        where: { id: Number(time2Id) },
+        include: {
+          jogadores: {
+            where: { temporada: temporada },
+            include: { jogador: true }
+          }
+        }
+      })
+    ]);
+
+    if (!time1 || !time2) {
+      res.status(404).json({ error: 'Um ou ambos os times não foram encontrados' });
+      return;
+    }
+
+    // Processar dados dos times para comparação
+    const time1Estatisticas = calcularEstatisticasTime(time1);
+    const time2Estatisticas = calcularEstatisticasTime(time2);
+
+    // Identificar jogadores destaque
+    const time1Destaques = identificarJogadoresDestaque(time1);
+    const time2Destaques = identificarJogadoresDestaque(time2);
+
+    // Construir objeto de resposta
+    const result = {
+      teams: {
+        time1: {
+          id: time1.id,
+          nome: time1.nome,
+          sigla: time1.sigla,
+          cor: time1.cor,
+          logo: time1.logo,
+          estatisticas: time1Estatisticas,
+          destaques: time1Destaques
+        },
+        time2: {
+          id: time2.id,
+          nome: time2.nome,
+          sigla: time2.sigla,
+          cor: time2.cor,
+          logo: time2.logo,
+          estatisticas: time2Estatisticas,
+          destaques: time2Destaques
+        }
+      }
+    };
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Erro ao comparar times:', error);
+    res.status(500).json({ error: 'Erro ao processar comparação de times' });
+  }
+});
+
+// Função auxiliar para calcular estatísticas agregadas de um time
+function calcularEstatisticasTime(time: any) {
+  const jogadores = time.jogadores.map((jt: any) => ({
+    ...jt.jogador,
+    estatisticas: jt.estatisticas,
+    numero: jt.numero,
+    camisa: jt.camisa
+  }));
+
+  // Estatísticas de ataque
+  const ataque = {
+    passes_completos: 0,
+    passes_tentados: 0,
+    passes_percentual: 0,
+    td_passado: 0,
+    interceptacoes_sofridas: 0,
+    sacks_sofridos: 0,
+    corrida: 0,
+    tds_corridos: 0,
+    recepcao: 0,
+    alvo: 0,
+    td_recebido: 0
+  };
+
+  // Estatísticas de defesa
+  const defesa = {
+    sack: 0,
+    pressao: 0,
+    flag_retirada: 0,
+    flag_perdida: 0,
+    passe_desviado: 0,
+    interceptacao_forcada: 0,
+    td_defensivo: 0
+  };
+
+  // Calcular totais
+  jogadores.forEach((jogador: any) => {
+    if (jogador.estatisticas?.ataque) {
+      const e = jogador.estatisticas.ataque;
+      ataque.passes_completos += e.passes_completos || 0;
+      ataque.passes_tentados += e.passes_tentados || 0;
+      ataque.td_passado += e.td_passado || 0;
+      ataque.interceptacoes_sofridas += e.interceptacoes_sofridas || 0;
+      ataque.sacks_sofridos += e.sacks_sofridos || 0;
+      ataque.corrida += e.corrida || 0;
+      ataque.tds_corridos += e.tds_corridos || 0;
+      ataque.recepcao += e.recepcao || 0;
+      ataque.alvo += e.alvo || 0;
+      ataque.td_recebido += e.td_recebido || 0;
+    }
+
+    if (jogador.estatisticas?.defesa) {
+      const e = jogador.estatisticas.defesa;
+      defesa.sack += e.sack || 0;
+      defesa.pressao += e.pressao || 0;
+      defesa.flag_retirada += e.flag_retirada || 0;
+      defesa.flag_perdida += e.flag_perdida || 0;
+      defesa.passe_desviado += e.passe_desviado || 0;
+      defesa.interceptacao_forcada += e.interceptacao_forcada || 0;
+      defesa.td_defensivo += e.td_defensivo || 0;
+    }
+  });
+
+  // Calcular percentual de passes
+  ataque.passes_percentual = ataque.passes_tentados > 0
+    ? (ataque.passes_completos / ataque.passes_tentados) * 100
+    : 0;
+
+  return { ataque, defesa };
+}
+
+// Função para identificar jogadores destaque em cada categoria
+function identificarJogadoresDestaque(time: any) {
+  const jogadores = time.jogadores.map((jt: any) => ({
+    id: jt.jogador.id,
+    nome: jt.jogador.nome,
+    camisa: jt.camisa,
+    numero: jt.numero,
+    estatisticas: jt.estatisticas
+  }));
+
+  // Categorias a avaliar
+  const destaques: {
+    ataque: {
+      passador: any | null;
+      corredor: any | null;
+      recebedor: any | null;
+    };
+    defesa: {
+      flagRetirada: any | null;
+      pressao: any | null;
+      interceptador: any | null;
+    };
+  } = {
+    ataque: {
+      passador: null,
+      corredor: null,
+      recebedor: null
+    },
+    defesa: {
+      flagRetirada: null,
+      pressao: null,
+      interceptador: null
+    }
+  };
+
+  // Encontrar melhor passador (TD passes)
+  destaques.ataque.passador = jogadores
+    .filter((j: any) => j.estatisticas?.ataque?.td_passado > 0)
+    .sort((a: any, b: any) => (b.estatisticas?.ataque?.td_passado || 0) - (a.estatisticas?.ataque?.td_passado || 0))[0] || null;
+
+  // Encontrar melhor corredor (yards corridas)
+  destaques.ataque.corredor = jogadores
+    .filter((j: any) => j.estatisticas?.ataque?.corrida > 0)
+    .sort((a: any, b: any) => (b.estatisticas?.ataque?.corrida || 0) - (a.estatisticas?.ataque?.corrida || 0))[0] || null;
+
+  // Encontrar melhor recebedor (TD recebidos)
+  destaques.ataque.recebedor = jogadores
+    .filter((j: any) => j.estatisticas?.ataque?.td_recebido > 0)
+    .sort((a: any, b: any) => (b.estatisticas?.ataque?.td_recebido || 0) - (a.estatisticas?.ataque?.td_recebido || 0))[0] || null;
+
+  // Encontrar melhor em flag retirada
+  destaques.defesa.flagRetirada = jogadores
+    .filter((j: any) => j.estatisticas?.defesa?.flag_retirada > 0)
+    .sort((a: any, b: any) => (b.estatisticas?.defesa?.flag_retirada || 0) - (a.estatisticas?.defesa?.flag_retirada || 0))[0] || null;
+
+  // Encontrar melhor em pressão
+  destaques.defesa.pressao = jogadores
+    .filter((j: any) => j.estatisticas?.defesa?.pressao > 0)
+    .sort((a: any, b: any) => (b.estatisticas?.defesa?.pressao || 0) - (a.estatisticas?.defesa?.pressao || 0))[0] || null;
+
+  // Encontrar melhor interceptador
+  destaques.defesa.interceptador = jogadores
+    .filter((j: any) => j.estatisticas?.defesa?.interceptacao_forcada > 0)
+    .sort((a: any, b: any) => (b.estatisticas?.defesa?.interceptacao_forcada || 0) - (a.estatisticas?.defesa?.interceptacao_forcada || 0))[0] || null;
+
+  return destaques;
+}
+
 // Rota para obter transferências a partir do arquivo JSON
 mainRouter.get('/transferencias-json', (req: Request, res: Response) => {
     try {
@@ -535,7 +757,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 instagram?: string;
                 instagram2?: string;
                 logo?: string;
-                head_coach?: string;
             }
 
             interface Transferencia {
@@ -580,7 +801,6 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         instagram: timeChange?.instagram || time.instagram,
                         instagram2: timeChange?.instagram2 || time.instagram2,
                         logo: timeChange?.logo || time.logo,
-                        head_coach: timeChange?.head_coach || time.head_coach,
                         temporada: ano,
                     },
                 });
@@ -827,7 +1047,6 @@ mainRouter.post('/importar-dados', async (req, res) => {
                     instagram: teamData.instagram || '',
                     instagram2: teamData.instagram2 || '',
                     logo: teamData.logo || '',
-                    head_coach: teamData.head_coach || '',
                     temporada: teamData.temporada || '2025',
                 },
             })
@@ -871,5 +1090,11 @@ mainRouter.post('/importar-dados', async (req, res) => {
         res.status(500).json({ error: 'Erro ao importar os dados' })
     }
 })
+
+// Importação da planilha inicial (implementação detalhada no próximo passo)
+mainRouter.post('/importar-planilha', upload.single('arquivo'), async (req, res) => {...});
+
+// Importação de estatísticas de jogo (implementação detalhada mais tarde)
+mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req, res) => {...});
 
 export default mainRouter

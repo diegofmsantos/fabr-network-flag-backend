@@ -17,7 +17,6 @@ model Time {
   instagram       String
   instagram2      String
   logo            String
-  head_coach      String
   temporada       String        // "2024", "2025", etc.
   jogadores       JogadorTime[]
 
