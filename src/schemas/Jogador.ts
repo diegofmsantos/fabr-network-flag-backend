@@ -28,5 +28,7 @@ export const JogadorSchema = z.object({
     id: z.number().optional(),
     nome: z.string().optional(),
     timeId: z.number().optional(),
+    numero: z.number().optional(), // Adicionando número
+    camisa: z.string().optional(), // Adicionando camisa
     estatisticas: EstatisticasSchema.optional(),
 })

@@ -9,31 +9,33 @@ import multer from 'multer'
 import xlsx from 'xlsx';
 
 
+const uploadDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (_req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir); // Usa a pasta uploads
+  },
+  filename: (_req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
 });
 
-// Filtro para aceitar apenas arquivos Excel
-const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    if (
-        file.mimetype === 'application/vnd.ms-excel' ||
-        file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    ) {
-        cb(null, true);
-    } else {
-        cb(null, false);
-    }
-};
-
 const upload = multer({
-    storage,
-    fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5 MB
+  storage,
+  fileFilter: (_req, file, cb) => {
+    if (
+      file.mimetype === 'application/vnd.ms-excel' ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5 MB
 });
 
 
@@ -113,6 +115,9 @@ mainRouter.post('/time', async (req, res) => {
                     data: {
                         jogadorId: jogadorCriado.id,
                         timeId: createdTeam.id,
+                        temporada: teamData.temporada || '2025', // Adicionando campo temporada
+                        numero: player.numero || 0, // Adicionando número padrão
+                        camisa: player.camisa || '', // Adicionando camisa padrão
                         estatisticas: player.estatisticas || {},
                     },
                 })
@@ -366,6 +371,8 @@ mainRouter.post('/jogador', async (req, res) => {
                 jogadorId: jogadorCriado.id,
                 timeId: jogadorData.timeId,
                 temporada: String(temporada),
+                numero: jogadorData.numero || 0, // Adicionando número
+                camisa: jogadorData.camisa || '', // Adicionando camisa
                 estatisticas: estatisticas,
             }
         });
@@ -1083,6 +1090,9 @@ mainRouter.post('/importar-dados', async (req, res) => {
                         data: {
                             jogadorId: jogadorCriado.id,
                             timeId: createdTeam.id,
+                            temporada: teamData.temporada || '2025', // Adicionando campo temporada
+                            numero: player.numero || 0, // Adicionando número
+                            camisa: player.camisa || '', // Adicionando camisa
                             estatisticas: player.estatisticas || {},
                         },
                     })
@@ -1100,6 +1110,7 @@ mainRouter.post('/importar-dados', async (req, res) => {
 
 // Rota para importar times
 mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) => {
+    console.log('Rota /importar-times chamada')
     try {
         if (!req.file) {
             res.status(400).json({ error: 'Nenhum arquivo enviado' });
@@ -1397,6 +1408,7 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
     }
 });
 
+// Rota para atualizar estatísticas a partir de uma planilha de jogo
 mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req, res) => {
     try {
         if (!req.file) {
@@ -1433,7 +1445,7 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
             where: { chave: 'jogos_processados' }
         });
 
-        let jogosProcessados = {};
+        let jogosProcessados: Record<string, any> = {};
         if (jogosJaProcessados && jogosJaProcessados.valor) {
             try {
                 jogosProcessados = JSON.parse(jogosJaProcessados.valor);
@@ -1453,7 +1465,12 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
         }
 
         // Array para armazenar as estatísticas originais deste jogo
-        const estatisticasOriginais = [];
+        const estatisticasOriginais: Array<{
+            jogadorId: number;
+            timeId: number;
+            temporada: string;
+            estatisticas: any;
+        }> = [];
 
         // Inicia uma transação para garantir que todos os dados sejam atualizados corretamente
         await prisma.$transaction(async (tx) => {
@@ -1716,6 +1733,7 @@ mainRouter.get('/jogos-processados', async (req, res) => {
 });
 
 // Rota para reprocessar um jogo
+// Rota para reprocessar um jogo
 mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) => {
     try {
         if (!req.file) {
@@ -1736,7 +1754,7 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
             where: { chave: 'jogos_processados' }
         });
 
-        let jogosProcessados = {};
+        let jogosProcessados: Record<string, any> = {};
         if (jogosJaProcessados && jogosJaProcessados.valor) {
             try {
                 jogosProcessados = JSON.parse(jogosJaProcessados.valor);
@@ -1776,7 +1794,13 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
             where: { chave: `estatisticas_jogo_${id_jogo}` }
         });
 
-        let estatisticasAnteriores = [];
+        let estatisticasAnteriores: Array<{
+            jogadorId: number;
+            timeId: number;
+            temporada: string;
+            estatisticas: any;
+        }> = [];
+
         if (estatisticasOriginais && estatisticasOriginais.valor) {
             try {
                 estatisticasAnteriores = JSON.parse(estatisticasOriginais.valor);
@@ -1854,7 +1878,12 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
             }
 
             // Array para armazenar as novas estatísticas deste jogo
-            const novasEstatisticasJogo = [];
+            const novasEstatisticasJogo: Array<{
+                jogadorId: number;
+                timeId: number;
+                temporada: string;
+                estatisticas: any;
+            }> = [];
 
             // Processa cada linha de estatísticas do novo arquivo
             for (const stat of estatisticasJogo) {
@@ -2095,36 +2124,36 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
 
 // Adicione esta rota ao main.ts
 mainRouter.get('/jogador/:id/temporada/:ano', async (req, res) => {
-  try {
-    const { id, ano } = req.params;
-    const jogadorId = parseInt(id, 10);
+    try {
+        const { id, ano } = req.params;
+        const jogadorId = parseInt(id, 10);
 
-    if (isNaN(jogadorId)) {
-      res.status(400).json({ error: 'ID do jogador inválido' });
-      return;
+        if (isNaN(jogadorId)) {
+            res.status(400).json({ error: 'ID do jogador inválido' });
+            return;
+        }
+
+        const jogadorTime = await prisma.jogadorTime.findFirst({
+            where: {
+                jogadorId,
+                temporada: ano,
+            },
+            include: {
+                jogador: true,
+                time: true,
+            },
+        });
+
+        if (!jogadorTime) {
+            res.status(404).json({ error: 'Jogador não encontrado nesta temporada' });
+            return;
+        }
+
+        res.status(200).json(jogadorTime);
+    } catch (error) {
+        console.error('Erro ao buscar jogador:', error);
+        res.status(500).json({ error: 'Erro ao buscar jogador' });
     }
-
-    const jogadorTime = await prisma.jogadorTime.findFirst({
-      where: {
-        jogadorId,
-        temporada: ano,
-      },
-      include: {
-        jogador: true,
-        time: true,
-      },
-    });
-
-    if (!jogadorTime) {
-      res.status(404).json({ error: 'Jogador não encontrado nesta temporada' });
-      return;
-    }
-
-    res.status(200).json(jogadorTime);
-  } catch (error) {
-    console.error('Erro ao buscar jogador:', error);
-    res.status(500).json({ error: 'Erro ao buscar jogador' });
-  }
 });
 
 export default mainRouter
