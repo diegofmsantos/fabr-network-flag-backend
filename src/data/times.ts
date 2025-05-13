@@ -12,19 +12,12 @@ export const Times: Time[] = [
         instagram: 'https://www.instagram.com/fortalezatritoes/',
         instagram2: '@fortalezatritoes',
         logo: "fortaleza-tritoes.png",
-        head_coach: 'Guilherme Bechtold',
         jogadores: [
             {
                 id: 1,
                 nome: "JP Mingau",
                 timeId: 1,
                 numero: 47,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -55,12 +48,6 @@ export const Times: Time[] = [
                 nome: "Lucas Burkhalter",
                 timeId: 1,
                 numero: 15,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -91,12 +78,6 @@ export const Times: Time[] = [
                 nome: "Michel dos Santos",
                 timeId: 1,
                 numero: 17,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -127,12 +108,6 @@ export const Times: Time[] = [
                 nome: "Gabriel de Assis",
                 timeId: 1,
                 numero: 23,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -163,12 +138,6 @@ export const Times: Time[] = [
                 nome: "Lucas Miranda",
                 timeId: 1,
                 numero: 34,
-                idade: 28,
-                altura: 1.78,
-                peso: 80,
-                instagram: 'https://www.instagram.com/lucasmiranda.88/',
-                instagram2: '@lucasmiranda.88',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -199,12 +168,6 @@ export const Times: Time[] = [
                 nome: "Gabriel Marques",
                 timeId: 1,
                 numero: 52,
-                idade: 25,
-                altura: 1.76,
-                peso: 99,
-                instagram: 'https://www.instagram.com/gmarques52/',
-                instagram2: '@gmarques52',
-                cidade: "Icó/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -235,12 +198,6 @@ export const Times: Time[] = [
                 nome: "Mateus Mendes",
                 timeId: 1,
                 numero: 10,
-                idade: 26,
-                altura: 1.78,
-                peso: 82,
-                instagram: 'https://www.instagram.com/1soniic1/',
-                instagram2: '@1soniic1',
-                cidade: "Icó/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -271,12 +228,6 @@ export const Times: Time[] = [
                 nome: "Gabriel Barreto",
                 timeId: 1,
                 numero: 3,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -307,12 +258,6 @@ export const Times: Time[] = [
                 nome: "Davyd Silva",
                 timeId: 1,
                 numero: 28,
-                idade: 30,
-                altura: 1.76,
-                peso: 75,
-                instagram: 'https://www.instagram.com/jabesofheaven/',
-                instagram2: '@jabesofheaven',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -343,12 +288,6 @@ export const Times: Time[] = [
                 nome: "Yago Moraes",
                 timeId: 1,
                 numero: 9,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -379,12 +318,6 @@ export const Times: Time[] = [
                 nome: "Daniel Melo",
                 timeId: 1,
                 numero: 41,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -415,12 +348,6 @@ export const Times: Time[] = [
                 nome: "Lucas Nascimento",
                 timeId: 1,
                 numero: 26,
-                idade: 28,
-                altura: 1.86,
-                peso: 98,
-                instagram: 'https://www.instagram.com/lvcasnp/',
-                instagram2: '@lvcasnp',
-                cidade: "Belém/PA",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -451,12 +378,6 @@ export const Times: Time[] = [
                 nome: "Luiz Gimes",
                 timeId: 1,
                 numero: 39,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {
@@ -487,12 +408,6 @@ export const Times: Time[] = [
                 nome: "Pedro da Silva",
                 timeId: 1,
                 numero: 5,
-                idade: 0,
-                altura: 0.00,
-                peso: 0,
-                instagram: 'https://www.instagram.com//',
-                instagram2: '@',
-                cidade: "Fortaleza/CE",
                 camisa: "camisa-teste-flag.png",
                 estatisticas: {
                     ataque: {

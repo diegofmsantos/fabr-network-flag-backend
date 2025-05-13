@@ -12,6 +12,5 @@ export const TimeSchema = z.object({
     instagram: z.string().optional(),
     instagram2: z.string().optional(),
     logo: z.string().optional(),
-    head_coach: z.string().optional(),
     jogadores: z.array(JogadorSchema).optional(),
 })

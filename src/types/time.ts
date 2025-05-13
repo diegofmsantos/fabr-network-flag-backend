@@ -11,6 +11,5 @@ export type Time = {
   logo?: string
   instagram?: string
   instagram2?: string
-  head_coach?: string
   jogadores?: Jogador[]
 }
