@@ -10,7 +10,7 @@ server.use(helmet())
 server.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://seu-frontend.com'] 
-    : ['http://localhost:3000'],
+    : ['http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

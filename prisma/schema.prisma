@@ -20,7 +20,6 @@ model Time {
   temporada       String
   jogadores       JogadorTime[]
 
-  @@unique([sigla, temporada]) // Garante que não haverá times com a mesma sigla na mesma temporada
 }
 
 model Jogador {
