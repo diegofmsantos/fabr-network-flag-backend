@@ -11,31 +11,31 @@ import xlsx from 'xlsx';
 
 const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+    fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadDir); // Usa a pasta uploads
-  },
-  filename: (_req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
+    destination: (_req, _file, cb) => {
+        cb(null, uploadDir); // Usa a pasta uploads
+    },
+    filename: (_req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
 });
 
 const upload = multer({
-  storage,
-  fileFilter: (_req, file, cb) => {
-    if (
-      file.mimetype === 'application/vnd.ms-excel' ||
-      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    ) {
-      cb(null, true);
-    } else {
-      cb(null, false);
-    }
-  },
-  limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5 MB
+    storage,
+    fileFilter: (_req, file, cb) => {
+        if (
+            file.mimetype === 'application/vnd.ms-excel' ||
+            file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ) {
+            cb(null, true);
+        } else {
+            cb(null, false);
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5 MB
 });
 
 
@@ -1113,19 +1113,35 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
     console.log('Rota /importar-times chamada')
     try {
         if (!req.file) {
+            console.log('Nenhum arquivo enviado');
             res.status(400).json({ error: 'Nenhum arquivo enviado' });
             return;
         }
 
+        console.log('Arquivo recebido:', req.file.path);
+        
         // Carrega o arquivo Excel
+        console.log('Tentando ler o arquivo Excel...');
         const workbook = xlsx.readFile(req.file.path);
+        console.log('Arquivo Excel lido com sucesso');
+        
         const sheetName = workbook.SheetNames[0];
+        console.log('Nome da planilha:', sheetName);
+        
         const timeSheet = workbook.Sheets[sheetName];
-
+        
         // Converte para JSON
-        const times = xlsx.utils.sheet_to_json(timeSheet) as any[];
+        console.log('Convertendo planilha para JSON...');
+        let timesRaw = xlsx.utils.sheet_to_json(timeSheet) as any[];
+        console.log(`Processando ${timesRaw.length} times da planilha`);
 
-        console.log(`Processando ${times.length} times da planilha`);
+        // Pré-processamento para garantir tipos corretos
+        const times = timesRaw.map(time => ({
+            ...time,
+            temporada: time.temporada ? String(time.temporada) : '2025'
+        }));
+        
+        console.log('Times pré-processados com temporada convertida para string');
 
         // Array para armazenar resultados
         const resultados = {
@@ -1136,8 +1152,11 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
         // Processa cada time
         for (const time of times) {
             try {
+                console.log(`Processando time: ${time.nome}, temporada: ${time.temporada}, tipo: ${typeof time.temporada}`);
+                
                 // Validação básica
                 if (!time.nome || !time.sigla || !time.cor) {
+                    console.log(`Time com dados incompletos: ${JSON.stringify(time)}`);
                     resultados.erros.push({
                         time: time.nome || 'Desconhecido',
                         erro: 'Dados obrigatórios ausentes'
@@ -1145,20 +1164,22 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
                     continue;
                 }
 
-                // Define a temporada padrão se não estiver presente
-                if (!time.temporada) {
-                    time.temporada = '2025';
-                }
-
                 // Verifica se o time já existe
+                console.log(`Verificando se o time ${time.nome} já existe na temporada ${time.temporada}`);
+                
+                // Garantir que temporada seja string
+                const temporadaString = String(time.temporada);
+                console.log(`Tipo de temporadaString: ${typeof temporadaString}, valor: ${temporadaString}`);
+                
                 const timeExistente = await prisma.time.findFirst({
                     where: {
                         nome: time.nome,
-                        temporada: time.temporada
+                        temporada: temporadaString
                     }
                 });
 
                 if (timeExistente) {
+                    console.log(`Time ${time.nome} já existe, atualizando...`);
                     // Atualiza o time existente
                     await prisma.time.update({
                         where: { id: timeExistente.id },
@@ -1172,8 +1193,10 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
                             logo: time.logo || ''
                         }
                     });
+                    console.log(`Time ${time.nome} atualizado com sucesso`);
                 } else {
-                    // Cria um novo time
+                    console.log(`Time ${time.nome} não existe, criando novo...`);
+                    // Cria um novo time com temporada explicitamente como string
                     await prisma.time.create({
                         data: {
                             nome: time.nome,
@@ -1184,9 +1207,10 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
                             instagram: time.instagram || '',
                             instagram2: time.instagram2 || '',
                             logo: time.logo || '',
-                            temporada: time.temporada
+                            temporada: temporadaString
                         }
                     });
+                    console.log(`Time ${time.nome} criado com sucesso`);
                 }
 
                 resultados.sucesso++;
@@ -1201,6 +1225,7 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
 
         // Remove o arquivo após processamento
         fs.unlinkSync(req.file.path);
+        console.log('Arquivo removido após processamento');
 
         res.status(200).json({
             mensagem: `Processamento concluído: ${resultados.sucesso} times importados com sucesso`,
@@ -1212,6 +1237,7 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
         // Garante que o arquivo seja removido em caso de erro
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
+            console.log('Arquivo removido após erro');
         }
 
         res.status(500).json({
@@ -1229,15 +1255,54 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
             return;
         }
 
-        // Carrega o arquivo Excel
-        const workbook = xlsx.readFile(req.file.path);
+        console.log('Arquivo recebido:', req.file.path);
+
+        // Carrega o arquivo Excel com opções para manter strings
+        console.log('Tentando ler o arquivo Excel...');
+        const workbook = xlsx.readFile(req.file.path, { 
+            raw: false,  // Não converter para tipos nativos
+            cellText: true  // Manter valores de células como texto
+        });
+        console.log('Arquivo Excel lido com sucesso');
+        
         const sheetName = workbook.SheetNames[0];
+        console.log('Nome da planilha:', sheetName);
+        
         const jogadorSheet = workbook.Sheets[sheetName];
 
         // Converte para JSON
-        const jogadores = xlsx.utils.sheet_to_json(jogadorSheet) as any[];
+        console.log('Convertendo planilha para JSON...');
+        let jogadoresRaw = xlsx.utils.sheet_to_json(jogadorSheet) as any[];
+        console.log(`Processando ${jogadoresRaw.length} jogadores da planilha`);
 
-        console.log(`Processando ${jogadores.length} jogadores da planilha`);
+        // Função para converter todos os números para strings
+        function convertNumbersToStrings(obj: any): any {
+            if (obj === null || obj === undefined) {
+                return obj;
+            }
+            
+            if (typeof obj === 'number') {
+                return String(obj);
+            }
+            
+            if (Array.isArray(obj)) {
+                return obj.map(item => convertNumbersToStrings(item));
+            }
+            
+            if (typeof obj === 'object') {
+                const result: any = {};
+                for (const key in obj) {
+                    result[key] = convertNumbersToStrings(obj[key]);
+                }
+                return result;
+            }
+            
+            return obj;
+        }
+
+        // Converte todos os números para strings
+        jogadoresRaw = convertNumbersToStrings(jogadoresRaw);
+        console.log('Convertido todos os números para strings');
 
         // Array para armazenar resultados
         const resultados = {
@@ -1246,10 +1311,13 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
         };
 
         // Processa cada jogador
-        for (const jogador of jogadores) {
+        for (const jogador of jogadoresRaw) {
             try {
+                console.log(`Processando jogador: ${jogador.nome}, time: ${jogador.time_nome}, temporada: ${jogador.temporada}, tipo temporada: ${typeof jogador.temporada}`);
+                
                 // Validação básica
                 if (!jogador.nome || !jogador.time_nome) {
+                    console.log(`Jogador com dados incompletos: ${JSON.stringify(jogador)}`);
                     resultados.erros.push({
                         jogador: jogador.nome || 'Desconhecido',
                         erro: 'Dados obrigatórios ausentes'
@@ -1257,12 +1325,8 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
                     continue;
                 }
 
-                // Define a temporada padrão se não estiver presente
-                if (!jogador.temporada) {
-                    jogador.temporada = '2025';
-                }
-
                 // Busca o time relacionado
+                console.log(`Buscando time: ${jogador.time_nome}, temporada: ${jogador.temporada}`);
                 const time = await prisma.time.findFirst({
                     where: {
                         nome: jogador.time_nome,
@@ -1271,6 +1335,7 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
                 });
 
                 if (!time) {
+                    console.log(`Time "${jogador.time_nome}" não encontrado para a temporada ${jogador.temporada}`);
                     resultados.erros.push({
                         jogador: jogador.nome,
                         erro: `Time "${jogador.time_nome}" não encontrado para a temporada ${jogador.temporada}`
@@ -1278,32 +1343,37 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
                     continue;
                 }
 
-                // Prepara as estatísticas iniciais (zeradas)
+                console.log(`Time encontrado: ${time.id} - ${time.nome}`);
+
+                // Prepara as estatísticas a partir dos dados da planilha
                 const estatisticas = {
                     ataque: {
-                        passes_completos: 0,
-                        passes_tentados: 0,
-                        td_passado: 0,
-                        interceptacoes_sofridas: 0,
-                        sacks_sofridos: 0,
-                        corrida: 0,
-                        tds_corridos: 0,
-                        recepcao: 0,
-                        alvo: 0,
-                        td_recebido: 0
+                        passes_completos: Number(jogador.passes_completos || 0),
+                        passes_tentados: Number(jogador.passes_tentados || 0),
+                        td_passado: Number(jogador.td_passado || 0),
+                        interceptacoes_sofridas: Number(jogador.interceptacoes_sofridas || 0),
+                        sacks_sofridos: Number(jogador.sacks_sofridos || 0),
+                        corrida: Number(jogador.corrida || 0),
+                        tds_corridos: Number(jogador.tds_corridos || 0),
+                        recepcao: Number(jogador.recepcao || 0),
+                        alvo: Number(jogador.alvo || 0),
+                        td_recebido: Number(jogador.td_recebido || 0)
                     },
                     defesa: {
-                        sack: 0,
-                        pressao: 0,
-                        flag_retirada: 0,
-                        flag_perdida: 0,
-                        passe_desviado: 0,
-                        interceptacao_forcada: 0,
-                        td_defensivo: 0
+                        sack: Number(jogador.sack || 0),
+                        pressao: Number(jogador.pressao || 0),
+                        flag_retirada: Number(jogador.flag_retirada || 0),
+                        flag_perdida: Number(jogador.flag_perdida || 0),
+                        passe_desviado: Number(jogador.passe_desviado || 0),
+                        interceptacao_forcada: Number(jogador.interceptacao_forcada || 0),
+                        td_defensivo: Number(jogador.td_defensivo || 0)
                     }
                 };
 
+                console.log(`Estatísticas preparadas para ${jogador.nome}`);
+
                 // Verifica se o jogador já existe
+                console.log(`Verificando se o jogador ${jogador.nome} já existe`);
                 let jogadorExistente = await prisma.jogador.findFirst({
                     where: {
                         nome: jogador.nome,
@@ -1325,55 +1395,57 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
                 });
 
                 if (jogadorExistente) {
-                    // Atualiza o jogador existente
-                    await prisma.jogador.update({
-                        where: { id: jogadorExistente.id },
-                        data: {
-                        }
-                    });
-
+                    console.log(`Jogador ${jogador.nome} já existe, ID: ${jogadorExistente.id}`);
                     // Atualiza o vínculo se existir
                     if (jogadorExistente.times && jogadorExistente.times.length > 0) {
+                        console.log(`Atualizando vínculo existente para ${jogador.nome}`);
                         await prisma.jogadorTime.update({
                             where: { id: jogadorExistente.times[0].id },
                             data: {
-                                numero: jogador.numero || jogadorExistente.times[0].numero,
-                                camisa: jogador.camisa || jogadorExistente.times[0].camisa
-                                // Mantém as estatísticas existentes
+                                numero: Number(jogador.numero || 0),
+                                camisa: jogador.camisa || '',
+                                estatisticas: estatisticas // Atualiza estatísticas
                             }
                         });
+                        console.log(`Vínculo do jogador ${jogador.nome} atualizado com sucesso`);
                     } else {
                         // Cria um novo vínculo se não existir
+                        console.log(`Criando novo vínculo para jogador existente ${jogador.nome}`);
                         await prisma.jogadorTime.create({
                             data: {
                                 jogadorId: jogadorExistente.id,
                                 timeId: time.id,
                                 temporada: jogador.temporada,
-                                numero: jogador.numero || 0,
+                                numero: Number(jogador.numero || 0),
                                 camisa: jogador.camisa || '',
                                 estatisticas: estatisticas
                             }
                         });
+                        console.log(`Novo vínculo criado para jogador ${jogador.nome} existente`);
                     }
                 } else {
+                    console.log(`Jogador ${jogador.nome} não existe, criando novo...`);
                     // Cria um novo jogador
                     const novoJogador = await prisma.jogador.create({
                         data: {
                             nome: jogador.nome
                         }
                     });
+                    console.log(`Jogador ${jogador.nome} criado com ID: ${novoJogador.id}`);
 
                     // Cria o vínculo com o time
+                    console.log(`Criando vínculo para novo jogador ${jogador.nome}`);
                     await prisma.jogadorTime.create({
                         data: {
                             jogadorId: novoJogador.id,
                             timeId: time.id,
                             temporada: jogador.temporada,
-                            numero: jogador.numero || 0,
+                            numero: Number(jogador.numero || 0),
                             camisa: jogador.camisa || '',
                             estatisticas: estatisticas
                         }
                     });
+                    console.log(`Jogador ${jogador.nome} e vínculo criados com sucesso`);
                 }
 
                 resultados.sucesso++;
@@ -1388,6 +1460,7 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
 
         // Remove o arquivo após processamento
         fs.unlinkSync(req.file.path);
+        console.log('Arquivo removido após processamento');
 
         res.status(200).json({
             mensagem: `Processamento concluído: ${resultados.sucesso} jogadores importados com sucesso`,
@@ -1399,6 +1472,7 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
         // Garante que o arquivo seja removido em caso de erro
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
+            console.log('Arquivo removido após erro');
         }
 
         res.status(500).json({
