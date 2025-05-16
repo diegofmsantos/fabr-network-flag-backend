@@ -17,15 +17,16 @@ model Time {
   instagram       String
   instagram2      String
   logo            String
+  regiao          String
+  sexo            String
   temporada       String
   jogadores       JogadorTime[]
-
 }
 
 model Jogador {
-  id        Int           @id @default(autoincrement())
-  nome      String
-  times     JogadorTime[] // Relação com times por temporada
+  id    Int           @id @default(autoincrement())
+  nome  String
+  times JogadorTime[] // Relação com times por temporada
 }
 
 model JogadorTime {

@@ -11,5 +11,7 @@ export type Time = {
   logo?: string
   instagram?: string
   instagram2?: string
+  regiao?: string   
+  sexo?: string 
   jogadores?: Jogador[]
 }

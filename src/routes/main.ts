@@ -96,7 +96,9 @@ mainRouter.post('/time', async (req, res) => {
                 instagram: teamData.instagram || '',
                 instagram2: teamData.instagram2 || '',
                 logo: teamData.logo || '',
-                temporada: teamData.temporada || '2025', // Adiciona temporada com valor padrão
+                regiao: teamData.regiao || '',
+                sexo: teamData.sexo || '',
+                temporada: teamData.temporada || '2025',
             },
         })
 
@@ -197,6 +199,7 @@ mainRouter.delete('/time/:id', async (req: Request<{ id: string }>, res: Respons
     }
 })
 
+// Rota para buscar jogadores
 mainRouter.get('/jogadores', async (req, res) => {
     try {
         const {
@@ -291,7 +294,7 @@ mainRouter.get('/jogadores', async (req, res) => {
     }
 });
 
-
+// Rota para buscar um jogador específico
 mainRouter.get('/jogador/:id/temporada/:ano', async (req: Request, res: Response) => {
     try {
         const { id, ano } = req.params;
@@ -340,7 +343,13 @@ mainRouter.post('/jogador', async (req, res) => {
         const { temporada = '2025', ...jogadorRawData } = req.body;
         const jogadorData = JogadorSchema.parse(jogadorRawData);
 
-        const estatisticas = jogadorData.estatisticas ?? {};
+        // Preparar os dados de estatísticas com a nova estrutura
+        const estatisticas = {
+            passe: jogadorData.estatisticas?.passe ?? {},
+            corrida: jogadorData.estatisticas?.corrida ?? {},
+            recepcao: jogadorData.estatisticas?.recepcao ?? {},
+            defesa: jogadorData.estatisticas?.defesa ?? {}
+        };
 
         // Verifica se timeId foi fornecido
         if (!jogadorData.timeId) {
@@ -358,6 +367,9 @@ mainRouter.post('/jogador', async (req, res) => {
             return;
         }
 
+        // Adiciona o nome do time ao jogador
+        const time_nome = timeExiste.nome;
+
         // Primeiro, cria o jogador
         const jogadorCriado = await prisma.jogador.create({
             data: {
@@ -371,14 +383,17 @@ mainRouter.post('/jogador', async (req, res) => {
                 jogadorId: jogadorCriado.id,
                 timeId: jogadorData.timeId,
                 temporada: String(temporada),
-                numero: jogadorData.numero || 0, // Adicionando número
-                camisa: jogadorData.camisa || '', // Adicionando camisa
+                numero: jogadorData.numero || 0,
+                camisa: jogadorData.camisa || '',
                 estatisticas: estatisticas,
             }
         });
 
         res.status(201).json({
-            jogador: jogadorCriado,
+            jogador: {
+                ...jogadorCriado,
+                time_nome // Adiciona o nome do time à resposta
+            },
             vinculo: jogadorTimeVinculo
         });
     } catch (error) {
@@ -400,16 +415,9 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
         }
 
         // Clone o body e remova os campos que não devem ir para o update do jogador
-        const { estatisticas, numero, camisa, timeId, temporada, id: bodyId, ...dadosJogador } = req.body;
+        const { estatisticas, numero, camisa, timeId, time_nome, temporada, id: bodyId, ...dadosJogador } = req.body;
 
-        console.log("Valor de camisa recebido:", camisa);
-
-        // Garanta que campos numéricos sejam números
-        if (dadosJogador.altura !== undefined) {
-            dadosJogador.altura = Number(String(dadosJogador.altura).replace(',', '.'));
-        }
-        if (dadosJogador.peso !== undefined) dadosJogador.peso = Number(dadosJogador.peso);
-        if (dadosJogador.idade !== undefined) dadosJogador.idade = Number(dadosJogador.idade);
+        console.log("Dados recebidos para atualização:", req.body);
 
         // Atualiza os dados básicos do jogador
         const updatedJogador = await prisma.jogador.update({
@@ -428,15 +436,24 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
                 }
             });
 
+            // Prepara as estatísticas com a nova estrutura
+            const estatisticasAtualizadas = {
+                passe: estatisticas?.passe || {},
+                corrida: estatisticas?.corrida || {},
+                recepcao: estatisticas?.recepcao || {},
+                defesa: estatisticas?.defesa || {}
+            };
+
             if (vinculoExistente) {
-                // Se camisa for passada, ela será atualizada, caso contrário, mantém o valor existente
+                // Preparar dados para atualização
                 const updateData = {
                     numero: numero !== undefined ? parseInt(String(numero)) : vinculoExistente.numero,
-                    camisa: camisa !== undefined ? camisa : vinculoExistente.camisa,  // Atualização da camisa
-                    estatisticas: estatisticas || vinculoExistente.estatisticas,
+                    camisa: camisa !== undefined ? camisa : vinculoExistente.camisa,
+                    estatisticas: {
+                        ...vinculoExistente.estatisticas as any,
+                        ...estatisticasAtualizadas
+                    }
                 };
-
-                console.log("Atualizando vínculo com camisa:", updateData.camisa);
 
                 // Atualiza o vínculo existente com os dados corretos
                 const vinculoAtualizado = await prisma.jogadorTime.update({
@@ -444,8 +461,7 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
                     data: updateData,
                 });
 
-                // Verifica se a atualização foi feita
-                console.log("Camisa após atualização:", vinculoAtualizado.camisa);
+                console.log("Vínculo atualizado:", vinculoAtualizado);
             } else {
                 // Cria um novo vínculo se não existir
                 await prisma.jogadorTime.create({
@@ -454,8 +470,8 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
                         timeId: parseInt(String(timeId)),
                         temporada: temporada,
                         numero: numero !== undefined ? parseInt(String(numero)) : 0,
-                        camisa: camisa || '',  // Garante que camisa será armazenada
-                        estatisticas: estatisticas || {},
+                        camisa: camisa || '',
+                        estatisticas: estatisticasAtualizadas,
                     }
                 });
             }
@@ -474,7 +490,7 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
                         id: true,
                         temporada: true,
                         numero: true,
-                        camisa: true, // Campo camisa para retornar no resultado
+                        camisa: true,
                         estatisticas: true,
                         time: true // se quiser trazer o time relacionado
                     }
@@ -482,7 +498,13 @@ mainRouter.put('/jogador/:id', async (req: Request<{ id: string }>, res: Respons
             }
         });
 
-        res.status(200).json(jogadorComVinculos);
+        // Adicionar o time_nome na resposta
+        const responseJogador = {
+            ...jogadorComVinculos,
+            time_nome: time_nome || (jogadorComVinculos?.times?.[0]?.time?.nome) || null
+        };
+
+        res.status(200).json(responseJogador);
     } catch (error) {
         console.error("Erro ao atualizar o jogador:", error);
         res.status(500).json({ error: "Erro ao atualizar o jogador" });
@@ -778,6 +800,8 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                 instagram?: string;
                 instagram2?: string;
                 logo?: string;
+                regiao?: string;  // Novo campo
+                sexo?: string;    // Novo campo
             }
 
             interface Transferencia {
@@ -823,6 +847,8 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         instagram2: timeChange?.instagram2 || time.instagram2,
                         logo: timeChange?.logo || time.logo,
                         temporada: ano,
+                        regiao: timeChange?.regiao || time.regiao || "",  // Novo campo
+                        sexo: timeChange?.sexo || time.sexo || "",  // Novo campo
                     },
                 });
 
@@ -912,6 +938,81 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         continue;
                     }
 
+                    // Inicializar com estrutura vazia para estatísticas
+                    const estatisticasVazias = {
+                        passe: {},
+                        corrida: {},
+                        recepcao: {},
+                        defesa: {}
+                    };
+
+                    // Migrar estatísticas da estrutura antiga para a nova estrutura, se existirem
+                    let estatisticasNovas = estatisticasVazias;
+
+                    if (relacaoAtual.estatisticas) {
+                        const estatisticasAntigas = relacaoAtual.estatisticas as any;
+
+                        // Verifica se já está na nova estrutura
+                        if (estatisticasAntigas.passe || estatisticasAntigas.corrida ||
+                            estatisticasAntigas.recepcao || estatisticasAntigas.defesa) {
+                            // Já está na nova estrutura, apenas copiar
+                            estatisticasNovas = estatisticasAntigas;
+                        } else {
+                            // Converter da estrutura antiga para a nova
+                            try {
+                                estatisticasNovas = {
+                                    passe: {
+                                        passes_completos: estatisticasAntigas.ataque?.passes_completos || 0,
+                                        passes_tentados: estatisticasAntigas.ataque?.passes_tentados || 0,
+                                        passes_incompletos: 0,
+                                        jds_passe: 0,
+                                        tds_passe: estatisticasAntigas.ataque?.td_passado || 0,
+                                        passe_xp1: 0,
+                                        passe_xp2: 0,
+                                        int_sofridas: estatisticasAntigas.ataque?.interceptacoes_sofridas || 0,
+                                        sacks_sofridos: estatisticasAntigas.ataque?.sacks_sofridos || 0,
+                                        pressao_pct: "0"
+                                    },
+                                    corrida: {
+                                        corridas: 0,
+                                        jds_corridas: estatisticasAntigas.ataque?.corrida || 0,
+                                        tds_corridos: estatisticasAntigas.ataque?.tds_corridos || 0,
+                                        corrida_xp1: 0,
+                                        corrida_xp2: 0
+                                    },
+                                    recepcao: {
+                                        recepcoes: estatisticasAntigas.ataque?.recepcao || 0,
+                                        alvos: estatisticasAntigas.ataque?.alvo || 0,
+                                        drops: 0,
+                                        jds_recepcao: 0,
+                                        jds_yac: 0,
+                                        tds_recepcao: estatisticasAntigas.ataque?.td_recebido || 0,
+                                        recepcao_xp1: 0,
+                                        recepcao_xp2: 0
+                                    },
+                                    defesa: {
+                                        tck: 0,
+                                        tfl: 0,
+                                        pressao_pct: "0",
+                                        sacks: estatisticasAntigas.defesa?.sack || 0,
+                                        tip: estatisticasAntigas.defesa?.passe_desviado || 0,
+                                        int: estatisticasAntigas.defesa?.interceptacao_forcada || 0,
+                                        tds_defesa: estatisticasAntigas.defesa?.td_defensivo || 0,
+                                        defesa_xp2: 0,
+                                        sft: 0,
+                                        sft_1: 0,
+                                        blk: 0,
+                                        jds_defesa: 0
+                                    }
+                                };
+                            } catch (convError) {
+                                console.error("Erro ao converter estatísticas:", convError);
+                                // Em caso de erro, mantém estatísticas vazias
+                                estatisticasNovas = estatisticasVazias;
+                            }
+                        }
+                    }
+
                     const novoVinculo = await tx.jogadorTime.create({
                         data: {
                             jogadorId: jogadorId,
@@ -919,7 +1020,7 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             temporada: ano,
                             numero: transferencia.novoNumero || relacaoAtual.numero,
                             camisa: transferencia.novaCamisa || relacaoAtual.camisa,
-                            estatisticas: {}
+                            estatisticas: estatisticasNovas
                         }
                     });
 
@@ -948,6 +1049,81 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                         continue;
                     }
 
+                    // Inicializar com estrutura vazia para estatísticas
+                    const estatisticasVazias = {
+                        passe: {},
+                        corrida: {},
+                        recepcao: {},
+                        defesa: {}
+                    };
+
+                    // Migrar estatísticas da estrutura antiga para a nova estrutura, se existirem
+                    let estatisticasNovas = estatisticasVazias;
+
+                    if (jt.estatisticas) {
+                        const estatisticasAntigas = jt.estatisticas as any;
+
+                        // Verifica se já está na nova estrutura
+                        if (estatisticasAntigas.passe || estatisticasAntigas.corrida ||
+                            estatisticasAntigas.recepcao || estatisticasAntigas.defesa) {
+                            // Já está na nova estrutura, apenas copiar
+                            estatisticasNovas = estatisticasAntigas;
+                        } else {
+                            // Converter da estrutura antiga para a nova
+                            try {
+                                estatisticasNovas = {
+                                    passe: {
+                                        passes_completos: estatisticasAntigas.ataque?.passes_completos || 0,
+                                        passes_tentados: estatisticasAntigas.ataque?.passes_tentados || 0,
+                                        passes_incompletos: 0,
+                                        jds_passe: 0,
+                                        tds_passe: estatisticasAntigas.ataque?.td_passado || 0,
+                                        passe_xp1: 0,
+                                        passe_xp2: 0,
+                                        int_sofridas: estatisticasAntigas.ataque?.interceptacoes_sofridas || 0,
+                                        sacks_sofridos: estatisticasAntigas.ataque?.sacks_sofridos || 0,
+                                        pressao_pct: "0"
+                                    },
+                                    corrida: {
+                                        corridas: 0,
+                                        jds_corridas: estatisticasAntigas.ataque?.corrida || 0,
+                                        tds_corridos: estatisticasAntigas.ataque?.tds_corridos || 0,
+                                        corrida_xp1: 0,
+                                        corrida_xp2: 0
+                                    },
+                                    recepcao: {
+                                        recepcoes: estatisticasAntigas.ataque?.recepcao || 0,
+                                        alvos: estatisticasAntigas.ataque?.alvo || 0,
+                                        drops: 0,
+                                        jds_recepcao: 0,
+                                        jds_yac: 0,
+                                        tds_recepcao: estatisticasAntigas.ataque?.td_recebido || 0,
+                                        recepcao_xp1: 0,
+                                        recepcao_xp2: 0
+                                    },
+                                    defesa: {
+                                        tck: 0,
+                                        tfl: 0,
+                                        pressao_pct: "0",
+                                        sacks: estatisticasAntigas.defesa?.sack || 0,
+                                        tip: estatisticasAntigas.defesa?.passe_desviado || 0,
+                                        int: estatisticasAntigas.defesa?.interceptacao_forcada || 0,
+                                        tds_defesa: estatisticasAntigas.defesa?.td_defensivo || 0,
+                                        defesa_xp2: 0,
+                                        sft: 0,
+                                        sft_1: 0,
+                                        blk: 0,
+                                        jds_defesa: 0
+                                    }
+                                };
+                            } catch (convError) {
+                                console.error("Erro ao converter estatísticas:", convError);
+                                // Em caso de erro, mantém estatísticas vazias
+                                estatisticasNovas = estatisticasVazias;
+                            }
+                        }
+                    }
+
                     await tx.jogadorTime.create({
                         data: {
                             jogadorId: jogadorId,
@@ -955,7 +1131,7 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
                             temporada: ano,
                             numero: jt.numero,
                             camisa: jt.camisa,
-                            estatisticas: {}
+                            estatisticas: estatisticasNovas
                         }
                     });
 
@@ -1035,8 +1211,8 @@ mainRouter.post('/iniciar-temporada/:ano', async (req, res) => {
             return {
                 message: `Temporada ${ano} iniciada com sucesso!`,
                 times: timesNovos.length,
-                jogadores: jogadoresNovaTemporada,
-                transferencias: totalSalvo
+                jogadores: jogadoresRegularesProcessados + transferencias.length,
+                transferencias: transferencias.length
             };
 
         } catch (error) {
@@ -1070,6 +1246,8 @@ mainRouter.post('/importar-dados', async (req, res) => {
                     instagram2: teamData.instagram2 || '',
                     logo: teamData.logo || '',
                     temporada: teamData.temporada || '2025',
+                    regiao: teamData.regiao || '',
+                    sexo: teamData.sexo || ''
                 },
             })
 
@@ -1119,17 +1297,17 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
         }
 
         console.log('Arquivo recebido:', req.file.path);
-        
+
         // Carrega o arquivo Excel
         console.log('Tentando ler o arquivo Excel...');
         const workbook = xlsx.readFile(req.file.path);
         console.log('Arquivo Excel lido com sucesso');
-        
+
         const sheetName = workbook.SheetNames[0];
         console.log('Nome da planilha:', sheetName);
-        
+
         const timeSheet = workbook.Sheets[sheetName];
-        
+
         // Converte para JSON
         console.log('Convertendo planilha para JSON...');
         let timesRaw = xlsx.utils.sheet_to_json(timeSheet) as any[];
@@ -1140,7 +1318,7 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
             ...time,
             temporada: time.temporada ? String(time.temporada) : '2025'
         }));
-        
+
         console.log('Times pré-processados com temporada convertida para string');
 
         // Array para armazenar resultados
@@ -1153,7 +1331,7 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
         for (const time of times) {
             try {
                 console.log(`Processando time: ${time.nome}, temporada: ${time.temporada}, tipo: ${typeof time.temporada}`);
-                
+
                 // Validação básica
                 if (!time.nome || !time.sigla || !time.cor) {
                     console.log(`Time com dados incompletos: ${JSON.stringify(time)}`);
@@ -1166,11 +1344,11 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
 
                 // Verifica se o time já existe
                 console.log(`Verificando se o time ${time.nome} já existe na temporada ${time.temporada}`);
-                
+
                 // Garantir que temporada seja string
                 const temporadaString = String(time.temporada);
                 console.log(`Tipo de temporadaString: ${typeof temporadaString}, valor: ${temporadaString}`);
-                
+
                 const timeExistente = await prisma.time.findFirst({
                     where: {
                         nome: time.nome,
@@ -1207,7 +1385,9 @@ mainRouter.post('/importar-times', upload.single('arquivo'), async (req, res) =>
                             instagram: time.instagram || '',
                             instagram2: time.instagram2 || '',
                             logo: time.logo || '',
-                            temporada: temporadaString
+                            temporada: temporadaString,
+                            regiao: time.regiao || '',
+                            sexo: time.sexo || ''
                         }
                     });
                     console.log(`Time ${time.nome} criado com sucesso`);
@@ -1259,15 +1439,15 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
 
         // Carrega o arquivo Excel com opções para manter strings
         console.log('Tentando ler o arquivo Excel...');
-        const workbook = xlsx.readFile(req.file.path, { 
+        const workbook = xlsx.readFile(req.file.path, {
             raw: false,  // Não converter para tipos nativos
             cellText: true  // Manter valores de células como texto
         });
         console.log('Arquivo Excel lido com sucesso');
-        
+
         const sheetName = workbook.SheetNames[0];
         console.log('Nome da planilha:', sheetName);
-        
+
         const jogadorSheet = workbook.Sheets[sheetName];
 
         // Converte para JSON
@@ -1280,15 +1460,15 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
             if (obj === null || obj === undefined) {
                 return obj;
             }
-            
+
             if (typeof obj === 'number') {
                 return String(obj);
             }
-            
+
             if (Array.isArray(obj)) {
                 return obj.map(item => convertNumbersToStrings(item));
             }
-            
+
             if (typeof obj === 'object') {
                 const result: any = {};
                 for (const key in obj) {
@@ -1296,7 +1476,7 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
                 }
                 return result;
             }
-            
+
             return obj;
         }
 
@@ -1314,7 +1494,7 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
         for (const jogador of jogadoresRaw) {
             try {
                 console.log(`Processando jogador: ${jogador.nome}, time: ${jogador.time_nome}, temporada: ${jogador.temporada}, tipo temporada: ${typeof jogador.temporada}`);
-                
+
                 // Validação básica
                 if (!jogador.nome || !jogador.time_nome) {
                     console.log(`Jogador com dados incompletos: ${JSON.stringify(jogador)}`);
@@ -1345,28 +1525,50 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
 
                 console.log(`Time encontrado: ${time.id} - ${time.nome}`);
 
-                // Prepara as estatísticas a partir dos dados da planilha
+                // Prepara as estatísticas a partir dos dados da planilha, usando a nova estrutura
                 const estatisticas = {
-                    ataque: {
+                    passe: {
                         passes_completos: Number(jogador.passes_completos || 0),
                         passes_tentados: Number(jogador.passes_tentados || 0),
-                        td_passado: Number(jogador.td_passado || 0),
-                        interceptacoes_sofridas: Number(jogador.interceptacoes_sofridas || 0),
+                        passes_incompletos: Number(jogador.passes_incompletos || 0),
+                        jds_passe: Number(jogador.jds_passe || 0),
+                        tds_passe: Number(jogador.tds_passe || 0),
+                        passe_xp1: Number(jogador.passe_xp1 || 0),
+                        passe_xp2: Number(jogador.passe_xp2 || 0),
+                        int_sofridas: Number(jogador.int_sofridas || 0),
                         sacks_sofridos: Number(jogador.sacks_sofridos || 0),
-                        corrida: Number(jogador.corrida || 0),
+                        pressao_pct: jogador.pressao_pct || ""
+                    },
+                    corrida: {
+                        corridas: Number(jogador.corridas || 0),
+                        jds_corridas: Number(jogador.jds_corridas || 0),
                         tds_corridos: Number(jogador.tds_corridos || 0),
-                        recepcao: Number(jogador.recepcao || 0),
-                        alvo: Number(jogador.alvo || 0),
-                        td_recebido: Number(jogador.td_recebido || 0)
+                        corrida_xp1: Number(jogador.corrida_xp1 || 0),
+                        corrida_xp2: Number(jogador.corrida_xp2 || 0)
+                    },
+                    recepcao: {
+                        recepcoes: Number(jogador.recepcoes || 0),
+                        alvos: Number(jogador.alvos || 0),
+                        drops: Number(jogador.drops || 0),
+                        jds_recepcao: Number(jogador.jds_recepcao || 0),
+                        jds_yac: Number(jogador.jds_yac || 0),
+                        tds_recepcao: Number(jogador.tds_recepcao || 0),
+                        recepcao_xp1: Number(jogador.recepcao_xp1 || 0),
+                        recepcao_xp2: Number(jogador.recepcao_xp2 || 0)
                     },
                     defesa: {
-                        sack: Number(jogador.sack || 0),
-                        pressao: Number(jogador.pressao || 0),
-                        flag_retirada: Number(jogador.flag_retirada || 0),
-                        flag_perdida: Number(jogador.flag_perdida || 0),
-                        passe_desviado: Number(jogador.passe_desviado || 0),
-                        interceptacao_forcada: Number(jogador.interceptacao_forcada || 0),
-                        td_defensivo: Number(jogador.td_defensivo || 0)
+                        tck: Number(jogador.tck || 0),
+                        tfl: Number(jogador.tfl || 0),
+                        pressao_pct: jogador.pressao_pct_def || "",
+                        sacks: Number(jogador.sacks || 0),
+                        tip: Number(jogador.tip || 0),
+                        int: Number(jogador.int || 0),
+                        tds_defesa: Number(jogador.tds_defesa || 0),
+                        defesa_xp2: Number(jogador.defesa_xp2 || 0),
+                        sft: Number(jogador.sft || 0),
+                        sft_1: Number(jogador.sft_1 || 0),
+                        blk: Number(jogador.blk || 0),
+                        jds_defesa: Number(jogador.jds_defesa || 0)
                     }
                 };
 
@@ -1404,7 +1606,7 @@ mainRouter.post('/importar-jogadores', upload.single('arquivo'), async (req, res
                             data: {
                                 numero: Number(jogador.numero || 0),
                                 camisa: jogador.camisa || '',
-                                estatisticas: estatisticas // Atualiza estatísticas
+                                estatisticas: estatisticas // Atualiza estatísticas com a nova estrutura
                             }
                         });
                         console.log(`Vínculo do jogador ${jogador.nome} atualizado com sucesso`);
@@ -1498,13 +1700,24 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
             return;
         }
 
-        // Carrega o arquivo Excel
-        const workbook = xlsx.readFile(req.file.path);
+        // Carrega o arquivo Excel com opções para controlar os tipos
+        const workbook = xlsx.readFile(req.file.path, { 
+            raw: true,  // Manter valores crus
+            cellText: true,  // Força células como texto
+            cellDates: false  // Não converter datas
+        });
         const sheetName = workbook.SheetNames[0];
         const statsSheet = workbook.Sheets[sheetName];
 
         // Converte para JSON
         const estatisticasJogo = xlsx.utils.sheet_to_json(statsSheet) as any[];
+
+        // PRÉ-PROCESSAR TODOS OS DADOS - IMPORTANTE!
+        for (const stat of estatisticasJogo) {
+            if (stat.temporada !== undefined) {
+                stat.temporada = String(stat.temporada);
+            }
+        }
 
         console.log(`Processando estatísticas de ${estatisticasJogo.length} jogadores para o jogo ${id_jogo}`);
 
@@ -1560,8 +1773,8 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
                         continue;
                     }
 
-                    // Define a temporada padrão se não estiver presente
-                    const temporada = stat.temporada || '2025';
+                    // Define a temporada padrão se não estiver presente E GARANTE QUE É STRING
+                    const temporada = String(stat.temporada || '2025');
 
                     // Busca o jogador
                     let jogador;
@@ -1570,7 +1783,11 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
                             where: { id: parseInt(stat.jogador_id) },
                             include: {
                                 times: {
-                                    where: { temporada },
+                                    where: { 
+                                        temporada: {
+                                            equals: temporada // Usar sintaxe de objeto para garantir comparação de string
+                                        }
+                                    },
                                     include: { time: true }
                                 }
                             }
@@ -1588,7 +1805,9 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
                         const time = await tx.time.findFirst({
                             where: {
                                 nome: stat.time_nome,
-                                temporada
+                                temporada: {
+                                    equals: temporada // Usar sintaxe de objeto para garantir comparação de string
+                                }
                             }
                         });
 
@@ -1606,7 +1825,9 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
                                 times: {
                                     some: {
                                         timeId: time.id,
-                                        temporada
+                                        temporada: {
+                                            equals: temporada // Usar sintaxe de objeto para garantir comparação de string
+                                        }
                                     }
                                 }
                             },
@@ -1614,7 +1835,9 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
                                 times: {
                                     where: {
                                         timeId: time.id,
-                                        temporada
+                                        temporada: {
+                                            equals: temporada // Usar sintaxe de objeto para garantir comparação de string
+                                        }
                                     }
                                 }
                             }
@@ -1632,28 +1855,50 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
                     const jogadorTime = jogador.times[0];
                     const estatisticasAtuais = jogadorTime.estatisticas as any;
 
-                    // Prepara as estatísticas para este jogo
+                    // Prepara as estatísticas para este jogo com a nova estrutura
                     const estatisticasDoJogo = {
-                        ataque: {
+                        passe: {
                             passes_completos: parseInt(stat.passes_completos) || 0,
                             passes_tentados: parseInt(stat.passes_tentados) || 0,
-                            td_passado: parseInt(stat.td_passado) || 0,
-                            interceptacoes_sofridas: parseInt(stat.interceptacoes_sofridas) || 0,
+                            passes_incompletos: parseInt(stat.passes_incompletos) || 0,
+                            jds_passe: parseInt(stat.jds_passe) || 0,
+                            tds_passe: parseInt(stat.tds_passe) || 0,
+                            passe_xp1: parseInt(stat.passe_xp1) || 0,
+                            passe_xp2: parseInt(stat.passe_xp2) || 0,
+                            int_sofridas: parseInt(stat.int_sofridas) || 0,
                             sacks_sofridos: parseInt(stat.sacks_sofridos) || 0,
-                            corrida: parseInt(stat.corrida) || 0,
+                            pressao_pct: stat.pressao_pct || "0"
+                        },
+                        corrida: {
+                            corridas: parseInt(stat.corridas) || 0,
+                            jds_corridas: parseInt(stat.jds_corridas) || 0,
                             tds_corridos: parseInt(stat.tds_corridos) || 0,
-                            recepcao: parseInt(stat.recepcao) || 0,
-                            alvo: parseInt(stat.alvo) || 0,
-                            td_recebido: parseInt(stat.td_recebido) || 0
+                            corrida_xp1: parseInt(stat.corrida_xp1) || 0,
+                            corrida_xp2: parseInt(stat.corrida_xp2) || 0
+                        },
+                        recepcao: {
+                            recepcoes: parseInt(stat.recepcoes) || 0,
+                            alvos: parseInt(stat.alvos) || 0,
+                            drops: parseInt(stat.drops) || 0,
+                            jds_recepcao: parseInt(stat.jds_recepcao) || 0,
+                            jds_yac: parseInt(stat.jds_yac) || 0,
+                            tds_recepcao: parseInt(stat.tds_recepcao) || 0,
+                            recepcao_xp1: parseInt(stat.recepcao_xp1) || 0,
+                            recepcao_xp2: parseInt(stat.recepcao_xp2) || 0
                         },
                         defesa: {
-                            sack: parseInt(stat.sack) || 0,
-                            pressao: parseInt(stat.pressao) || 0,
-                            flag_retirada: parseInt(stat.flag_retirada) || 0,
-                            flag_perdida: parseInt(stat.flag_perdida) || 0,
-                            passe_desviado: parseInt(stat.passe_desviado) || 0,
-                            interceptacao_forcada: parseInt(stat.interceptacao_forcada) || 0,
-                            td_defensivo: parseInt(stat.td_defensivo) || 0
+                            tck: parseInt(stat.tck) || 0,
+                            tfl: parseInt(stat.tfl) || 0,
+                            pressao_pct: stat.pressao_pct_def || "0",
+                            sacks: parseInt(stat.sacks) || 0,
+                            tip: parseInt(stat.tip) || 0,
+                            int: parseInt(stat.int) || 0,
+                            tds_defesa: parseInt(stat.tds_defesa) || 0,
+                            defesa_xp2: parseInt(stat.defesa_xp2) || 0,
+                            sft: parseInt(stat.sft) || 0,
+                            sft_1: parseInt(stat.sft_1) || 0,
+                            blk: parseInt(stat.blk) || 0,
+                            jds_defesa: parseInt(stat.jds_defesa) || 0
                         }
                     };
 
@@ -1661,32 +1906,69 @@ mainRouter.post('/atualizar-estatisticas', upload.single('arquivo'), async (req,
                     estatisticasOriginais.push({
                         jogadorId: jogador.id,
                         timeId: jogadorTime.timeId,
-                        temporada,
+                        temporada: temporada, // Garantir string
                         estatisticas: estatisticasDoJogo
                     });
 
+                    // Verifica se a estrutura atual já é a nova
+                    const temNovaEstrutura =
+                        estatisticasAtuais.passe !== undefined ||
+                        estatisticasAtuais.corrida !== undefined ||
+                        estatisticasAtuais.recepcao !== undefined ||
+                        estatisticasAtuais.defesa !== undefined;
+
+                    // Inicializa estatísticas vazias na nova estrutura se necessário
+                    const baseEstatisticas = temNovaEstrutura ? estatisticasAtuais : {
+                        passe: {},
+                        corrida: {},
+                        recepcao: {},
+                        defesa: {}
+                    };
+
                     // Calcula as novas estatísticas totais
                     const novasEstatisticas = {
-                        ataque: {
-                            passes_completos: (estatisticasAtuais.ataque?.passes_completos || 0) + estatisticasDoJogo.ataque.passes_completos,
-                            passes_tentados: (estatisticasAtuais.ataque?.passes_tentados || 0) + estatisticasDoJogo.ataque.passes_tentados,
-                            td_passado: (estatisticasAtuais.ataque?.td_passado || 0) + estatisticasDoJogo.ataque.td_passado,
-                            interceptacoes_sofridas: (estatisticasAtuais.ataque?.interceptacoes_sofridas || 0) + estatisticasDoJogo.ataque.interceptacoes_sofridas,
-                            sacks_sofridos: (estatisticasAtuais.ataque?.sacks_sofridos || 0) + estatisticasDoJogo.ataque.sacks_sofridos,
-                            corrida: (estatisticasAtuais.ataque?.corrida || 0) + estatisticasDoJogo.ataque.corrida,
-                            tds_corridos: (estatisticasAtuais.ataque?.tds_corridos || 0) + estatisticasDoJogo.ataque.tds_corridos,
-                            recepcao: (estatisticasAtuais.ataque?.recepcao || 0) + estatisticasDoJogo.ataque.recepcao,
-                            alvo: (estatisticasAtuais.ataque?.alvo || 0) + estatisticasDoJogo.ataque.alvo,
-                            td_recebido: (estatisticasAtuais.ataque?.td_recebido || 0) + estatisticasDoJogo.ataque.td_recebido
+                        passe: {
+                            passes_completos: (baseEstatisticas.passe?.passes_completos || 0) + estatisticasDoJogo.passe.passes_completos,
+                            passes_tentados: (baseEstatisticas.passe?.passes_tentados || 0) + estatisticasDoJogo.passe.passes_tentados,
+                            passes_incompletos: (baseEstatisticas.passe?.passes_incompletos || 0) + estatisticasDoJogo.passe.passes_incompletos,
+                            jds_passe: (baseEstatisticas.passe?.jds_passe || 0) + estatisticasDoJogo.passe.jds_passe,
+                            tds_passe: (baseEstatisticas.passe?.tds_passe || 0) + estatisticasDoJogo.passe.tds_passe,
+                            passe_xp1: (baseEstatisticas.passe?.passe_xp1 || 0) + estatisticasDoJogo.passe.passe_xp1,
+                            passe_xp2: (baseEstatisticas.passe?.passe_xp2 || 0) + estatisticasDoJogo.passe.passe_xp2,
+                            int_sofridas: (baseEstatisticas.passe?.int_sofridas || 0) + estatisticasDoJogo.passe.int_sofridas,
+                            sacks_sofridos: (baseEstatisticas.passe?.sacks_sofridos || 0) + estatisticasDoJogo.passe.sacks_sofridos,
+                            pressao_pct: estatisticasDoJogo.passe.pressao_pct // Substitui o valor, não soma
+                        },
+                        corrida: {
+                            corridas: (baseEstatisticas.corrida?.corridas || 0) + estatisticasDoJogo.corrida.corridas,
+                            jds_corridas: (baseEstatisticas.corrida?.jds_corridas || 0) + estatisticasDoJogo.corrida.jds_corridas,
+                            tds_corridos: (baseEstatisticas.corrida?.tds_corridos || 0) + estatisticasDoJogo.corrida.tds_corridos,
+                            corrida_xp1: (baseEstatisticas.corrida?.corrida_xp1 || 0) + estatisticasDoJogo.corrida.corrida_xp1,
+                            corrida_xp2: (baseEstatisticas.corrida?.corrida_xp2 || 0) + estatisticasDoJogo.corrida.corrida_xp2
+                        },
+                        recepcao: {
+                            recepcoes: (baseEstatisticas.recepcao?.recepcoes || 0) + estatisticasDoJogo.recepcao.recepcoes,
+                            alvos: (baseEstatisticas.recepcao?.alvos || 0) + estatisticasDoJogo.recepcao.alvos,
+                            drops: (baseEstatisticas.recepcao?.drops || 0) + estatisticasDoJogo.recepcao.drops,
+                            jds_recepcao: (baseEstatisticas.recepcao?.jds_recepcao || 0) + estatisticasDoJogo.recepcao.jds_recepcao,
+                            jds_yac: (baseEstatisticas.recepcao?.jds_yac || 0) + estatisticasDoJogo.recepcao.jds_yac,
+                            tds_recepcao: (baseEstatisticas.recepcao?.tds_recepcao || 0) + estatisticasDoJogo.recepcao.tds_recepcao,
+                            recepcao_xp1: (baseEstatisticas.recepcao?.recepcao_xp1 || 0) + estatisticasDoJogo.recepcao.recepcao_xp1,
+                            recepcao_xp2: (baseEstatisticas.recepcao?.recepcao_xp2 || 0) + estatisticasDoJogo.recepcao.recepcao_xp2
                         },
                         defesa: {
-                            sack: (estatisticasAtuais.defesa?.sack || 0) + estatisticasDoJogo.defesa.sack,
-                            pressao: (estatisticasAtuais.defesa?.pressao || 0) + estatisticasDoJogo.defesa.pressao,
-                            flag_retirada: (estatisticasAtuais.defesa?.flag_retirada || 0) + estatisticasDoJogo.defesa.flag_retirada,
-                            flag_perdida: (estatisticasAtuais.defesa?.flag_perdida || 0) + estatisticasDoJogo.defesa.flag_perdida,
-                            passe_desviado: (estatisticasAtuais.defesa?.passe_desviado || 0) + estatisticasDoJogo.defesa.passe_desviado,
-                            interceptacao_forcada: (estatisticasAtuais.defesa?.interceptacao_forcada || 0) + estatisticasDoJogo.defesa.interceptacao_forcada,
-                            td_defensivo: (estatisticasAtuais.defesa?.td_defensivo || 0) + estatisticasDoJogo.defesa.td_defensivo
+                            tck: (baseEstatisticas.defesa?.tck || 0) + estatisticasDoJogo.defesa.tck,
+                            tfl: (baseEstatisticas.defesa?.tfl || 0) + estatisticasDoJogo.defesa.tfl,
+                            pressao_pct: estatisticasDoJogo.defesa.pressao_pct, // Substitui o valor, não soma
+                            sacks: (baseEstatisticas.defesa?.sacks || 0) + estatisticasDoJogo.defesa.sacks,
+                            tip: (baseEstatisticas.defesa?.tip || 0) + estatisticasDoJogo.defesa.tip,
+                            int: (baseEstatisticas.defesa?.int || 0) + estatisticasDoJogo.defesa.int,
+                            tds_defesa: (baseEstatisticas.defesa?.tds_defesa || 0) + estatisticasDoJogo.defesa.tds_defesa,
+                            defesa_xp2: (baseEstatisticas.defesa?.defesa_xp2 || 0) + estatisticasDoJogo.defesa.defesa_xp2,
+                            sft: (baseEstatisticas.defesa?.sft || 0) + estatisticasDoJogo.defesa.sft,
+                            sft_1: (baseEstatisticas.defesa?.sft_1 || 0) + estatisticasDoJogo.defesa.sft_1,
+                            blk: (baseEstatisticas.defesa?.blk || 0) + estatisticasDoJogo.defesa.blk,
+                            jds_defesa: (baseEstatisticas.defesa?.jds_defesa || 0) + estatisticasDoJogo.defesa.jds_defesa
                         }
                     };
 
@@ -1807,7 +2089,6 @@ mainRouter.get('/jogos-processados', async (req, res) => {
 });
 
 // Rota para reprocessar um jogo
-// Rota para reprocessar um jogo
 mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) => {
     try {
         if (!req.file) {
@@ -1913,38 +2194,87 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                         const jogadorTime = jogador.times[0];
                         const estatisticasAtuais = jogadorTime.estatisticas as any;
 
-                        // Subtrair as estatísticas anteriores
-                        const novasEstatisticas = {
-                            ataque: {
-                                passes_completos: Math.max(0, (estatisticasAtuais.ataque?.passes_completos || 0) - (estatAnterior.estatisticas.ataque?.passes_completos || 0)),
-                                passes_tentados: Math.max(0, (estatisticasAtuais.ataque?.passes_tentados || 0) - (estatAnterior.estatisticas.ataque?.passes_tentados || 0)),
-                                td_passado: Math.max(0, (estatisticasAtuais.ataque?.td_passado || 0) - (estatAnterior.estatisticas.ataque?.td_passado || 0)),
-                                interceptacoes_sofridas: Math.max(0, (estatisticasAtuais.ataque?.interceptacoes_sofridas || 0) - (estatAnterior.estatisticas.ataque?.interceptacoes_sofridas || 0)),
-                                sacks_sofridos: Math.max(0, (estatisticasAtuais.ataque?.sacks_sofridos || 0) - (estatAnterior.estatisticas.ataque?.sacks_sofridos || 0)),
-                                corrida: Math.max(0, (estatisticasAtuais.ataque?.corrida || 0) - (estatAnterior.estatisticas.ataque?.corrida || 0)),
-                                tds_corridos: Math.max(0, (estatisticasAtuais.ataque?.tds_corridos || 0) - (estatAnterior.estatisticas.ataque?.tds_corridos || 0)),
-                                recepcao: Math.max(0, (estatisticasAtuais.ataque?.recepcao || 0) - (estatAnterior.estatisticas.ataque?.recepcao || 0)),
-                                alvo: Math.max(0, (estatisticasAtuais.ataque?.alvo || 0) - (estatAnterior.estatisticas.ataque?.alvo || 0)),
-                                td_recebido: Math.max(0, (estatisticasAtuais.ataque?.td_recebido || 0) - (estatAnterior.estatisticas.ataque?.td_recebido || 0))
-                            },
-                            defesa: {
-                                sack: Math.max(0, (estatisticasAtuais.defesa?.sack || 0) - (estatAnterior.estatisticas.defesa?.sack || 0)),
-                                pressao: Math.max(0, (estatisticasAtuais.defesa?.pressao || 0) - (estatAnterior.estatisticas.defesa?.pressao || 0)),
-                                flag_retirada: Math.max(0, (estatisticasAtuais.defesa?.flag_retirada || 0) - (estatAnterior.estatisticas.defesa?.flag_retirada || 0)),
-                                flag_perdida: Math.max(0, (estatisticasAtuais.defesa?.flag_perdida || 0) - (estatAnterior.estatisticas.defesa?.flag_perdida || 0)),
-                                passe_desviado: Math.max(0, (estatisticasAtuais.defesa?.passe_desviado || 0) - (estatAnterior.estatisticas.defesa?.passe_desviado || 0)),
-                                interceptacao_forcada: Math.max(0, (estatisticasAtuais.defesa?.interceptacao_forcada || 0) - (estatAnterior.estatisticas.defesa?.interceptacao_forcada || 0)),
-                                td_defensivo: Math.max(0, (estatisticasAtuais.defesa?.td_defensivo || 0) - (estatAnterior.estatisticas.defesa?.td_defensivo || 0))
-                            }
-                        };
+                        // Verificar a estrutura das estatísticas
+                        const temNovaEstrutura =
+                            estatisticasAtuais.passe !== undefined ||
+                            estatisticasAtuais.corrida !== undefined ||
+                            estatisticasAtuais.recepcao !== undefined;
 
-                        // Atualiza as estatísticas do jogador
-                        await tx.jogadorTime.update({
-                            where: { id: jogadorTime.id },
-                            data: {
-                                estatisticas: novasEstatisticas
-                            }
-                        });
+                        if (temNovaEstrutura && estatAnterior.estatisticas.passe) {
+                            // Se ambos usam a nova estrutura, subtraímos os valores
+                            const novasEstatisticas = {
+                                passe: {
+                                    passes_completos: Math.max(0, (estatisticasAtuais.passe?.passes_completos || 0) - (estatAnterior.estatisticas.passe?.passes_completos || 0)),
+                                    passes_tentados: Math.max(0, (estatisticasAtuais.passe?.passes_tentados || 0) - (estatAnterior.estatisticas.passe?.passes_tentados || 0)),
+                                    passes_incompletos: Math.max(0, (estatisticasAtuais.passe?.passes_incompletos || 0) - (estatAnterior.estatisticas.passe?.passes_incompletos || 0)),
+                                    jds_passe: Math.max(0, (estatisticasAtuais.passe?.jds_passe || 0) - (estatAnterior.estatisticas.passe?.jds_passe || 0)),
+                                    tds_passe: Math.max(0, (estatisticasAtuais.passe?.tds_passe || 0) - (estatAnterior.estatisticas.passe?.tds_passe || 0)),
+                                    passe_xp1: Math.max(0, (estatisticasAtuais.passe?.passe_xp1 || 0) - (estatAnterior.estatisticas.passe?.passe_xp1 || 0)),
+                                    passe_xp2: Math.max(0, (estatisticasAtuais.passe?.passe_xp2 || 0) - (estatAnterior.estatisticas.passe?.passe_xp2 || 0)),
+                                    int_sofridas: Math.max(0, (estatisticasAtuais.passe?.int_sofridas || 0) - (estatAnterior.estatisticas.passe?.int_sofridas || 0)),
+                                    sacks_sofridos: Math.max(0, (estatisticasAtuais.passe?.sacks_sofridos || 0) - (estatAnterior.estatisticas.passe?.sacks_sofridos || 0)),
+                                    pressao_pct: estatisticasAtuais.passe?.pressao_pct || "0" // Mantém o valor atual
+                                },
+                                corrida: {
+                                    corridas: Math.max(0, (estatisticasAtuais.corrida?.corridas || 0) - (estatAnterior.estatisticas.corrida?.corridas || 0)),
+                                    jds_corridas: Math.max(0, (estatisticasAtuais.corrida?.jds_corridas || 0) - (estatAnterior.estatisticas.corrida?.jds_corridas || 0)),
+                                    tds_corridos: Math.max(0, (estatisticasAtuais.corrida?.tds_corridos || 0) - (estatAnterior.estatisticas.corrida?.tds_corridos || 0)),
+                                    corrida_xp1: Math.max(0, (estatisticasAtuais.corrida?.corrida_xp1 || 0) - (estatAnterior.estatisticas.corrida?.corrida_xp1 || 0)),
+                                    corrida_xp2: Math.max(0, (estatisticasAtuais.corrida?.corrida_xp2 || 0) - (estatAnterior.estatisticas.corrida?.corrida_xp2 || 0))
+                                },
+                                recepcao: {
+                                    recepcoes: Math.max(0, (estatisticasAtuais.recepcao?.recepcoes || 0) - (estatAnterior.estatisticas.recepcao?.recepcoes || 0)),
+                                    alvos: Math.max(0, (estatisticasAtuais.recepcao?.alvos || 0) - (estatAnterior.estatisticas.recepcao?.alvos || 0)),
+                                    drops: Math.max(0, (estatisticasAtuais.recepcao?.drops || 0) - (estatAnterior.estatisticas.recepcao?.drops || 0)),
+                                    jds_recepcao: Math.max(0, (estatisticasAtuais.recepcao?.jds_recepcao || 0) - (estatAnterior.estatisticas.recepcao?.jds_recepcao || 0)),
+                                    jds_yac: Math.max(0, (estatisticasAtuais.recepcao?.jds_yac || 0) - (estatAnterior.estatisticas.recepcao?.jds_yac || 0)),
+                                    tds_recepcao: Math.max(0, (estatisticasAtuais.recepcao?.tds_recepcao || 0) - (estatAnterior.estatisticas.recepcao?.tds_recepcao || 0)),
+                                    recepcao_xp1: Math.max(0, (estatisticasAtuais.recepcao?.recepcao_xp1 || 0) - (estatAnterior.estatisticas.recepcao?.recepcao_xp1 || 0)),
+                                    recepcao_xp2: Math.max(0, (estatisticasAtuais.recepcao?.recepcao_xp2 || 0) - (estatAnterior.estatisticas.recepcao?.recepcao_xp2 || 0))
+                                },
+                                defesa: {
+                                    tck: Math.max(0, (estatisticasAtuais.defesa?.tck || 0) - (estatAnterior.estatisticas.defesa?.tck || 0)),
+                                    tfl: Math.max(0, (estatisticasAtuais.defesa?.tfl || 0) - (estatAnterior.estatisticas.defesa?.tfl || 0)),
+                                    pressao_pct: estatisticasAtuais.defesa?.pressao_pct || "0", // Mantém o valor atual
+                                    sacks: Math.max(0, (estatisticasAtuais.defesa?.sacks || 0) - (estatAnterior.estatisticas.defesa?.sacks || 0)),
+                                    tip: Math.max(0, (estatisticasAtuais.defesa?.tip || 0) - (estatAnterior.estatisticas.defesa?.tip || 0)),
+                                    int: Math.max(0, (estatisticasAtuais.defesa?.int || 0) - (estatAnterior.estatisticas.defesa?.int || 0)),
+                                    tds_defesa: Math.max(0, (estatisticasAtuais.defesa?.tds_defesa || 0) - (estatAnterior.estatisticas.defesa?.tds_defesa || 0)),
+                                    defesa_xp2: Math.max(0, (estatisticasAtuais.defesa?.defesa_xp2 || 0) - (estatAnterior.estatisticas.defesa?.defesa_xp2 || 0)),
+                                    sft: Math.max(0, (estatisticasAtuais.defesa?.sft || 0) - (estatAnterior.estatisticas.defesa?.sft || 0)),
+                                    sft_1: Math.max(0, (estatisticasAtuais.defesa?.sft_1 || 0) - (estatAnterior.estatisticas.defesa?.sft_1 || 0)),
+                                    blk: Math.max(0, (estatisticasAtuais.defesa?.blk || 0) - (estatAnterior.estatisticas.defesa?.blk || 0)),
+                                    jds_defesa: Math.max(0, (estatisticasAtuais.defesa?.jds_defesa || 0) - (estatAnterior.estatisticas.defesa?.jds_defesa || 0))
+                                }
+                            };
+
+                            // Atualiza o vínculo existente com os dados corretos
+                            await tx.jogadorTime.update({
+                                where: { id: jogadorTime.id },
+                                data: {
+                                    estatisticas: novasEstatisticas
+                                }
+                            });
+                        }
+                        // Se as estruturas forem diferentes, criar uma nova estrutura vazia
+                        else {
+                            // Criar estrutura vazia
+                            const novasEstatisticas = {
+                                passe: {},
+                                corrida: {},
+                                recepcao: {},
+                                defesa: {}
+                            };
+
+                            // Atualiza o vínculo existente com os dados corretos
+                            await tx.jogadorTime.update({
+                                where: { id: jogadorTime.id },
+                                data: {
+                                    estatisticas: novasEstatisticas
+                                }
+                            });
+                        }
+
                     } catch (error) {
                         console.error(`Erro ao reverter estatísticas para jogador ${estatAnterior.jogadorId}:`, error);
                     }
@@ -1972,7 +2302,7 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                     }
 
                     // Define a temporada padrão se não estiver presente
-                    const temporada = stat.temporada || '2025';
+                    const temporada = String(stat.temporada || '2025');
 
                     // Busca o jogador
                     let jogador;
@@ -1981,7 +2311,7 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                             where: { id: parseInt(stat.jogador_id) },
                             include: {
                                 times: {
-                                    where: { temporada },
+                                    where: { temporada: String(temporada || '2025') }, // Conversão explícita
                                     include: { time: true }
                                 }
                             }
@@ -1999,7 +2329,7 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                         const time = await tx.time.findFirst({
                             where: {
                                 nome: stat.time_nome,
-                                temporada
+                                temporada: String(temporada)
                             }
                         });
 
@@ -2017,7 +2347,7 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                                 times: {
                                     some: {
                                         timeId: time.id,
-                                        temporada
+                                        temporada: String(temporada)
                                     }
                                 }
                             },
@@ -2025,7 +2355,7 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                                 times: {
                                     where: {
                                         timeId: time.id,
-                                        temporada
+                                        temporada: String(temporada)
                                     }
                                 }
                             }
@@ -2043,28 +2373,50 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                     const jogadorTime = jogador.times[0];
                     const estatisticasAtuais = jogadorTime.estatisticas as any;
 
-                    // Prepara as estatísticas para este jogo
+                    // Prepara as estatísticas para este jogo com a nova estrutura
                     const estatisticasDoJogo = {
-                        ataque: {
+                        passe: {
                             passes_completos: parseInt(stat.passes_completos) || 0,
                             passes_tentados: parseInt(stat.passes_tentados) || 0,
-                            td_passado: parseInt(stat.td_passado) || 0,
-                            interceptacoes_sofridas: parseInt(stat.interceptacoes_sofridas) || 0,
+                            passes_incompletos: parseInt(stat.passes_incompletos) || 0,
+                            jds_passe: parseInt(stat.jds_passe) || 0,
+                            tds_passe: parseInt(stat.tds_passe) || 0,
+                            passe_xp1: parseInt(stat.passe_xp1) || 0,
+                            passe_xp2: parseInt(stat.passe_xp2) || 0,
+                            int_sofridas: parseInt(stat.int_sofridas) || 0,
                             sacks_sofridos: parseInt(stat.sacks_sofridos) || 0,
-                            corrida: parseInt(stat.corrida) || 0,
+                            pressao_pct: stat.pressao_pct || "0"
+                        },
+                        corrida: {
+                            corridas: parseInt(stat.corridas) || 0,
+                            jds_corridas: parseInt(stat.jds_corridas) || 0,
                             tds_corridos: parseInt(stat.tds_corridos) || 0,
-                            recepcao: parseInt(stat.recepcao) || 0,
-                            alvo: parseInt(stat.alvo) || 0,
-                            td_recebido: parseInt(stat.td_recebido) || 0
+                            corrida_xp1: parseInt(stat.corrida_xp1) || 0,
+                            corrida_xp2: parseInt(stat.corrida_xp2) || 0
+                        },
+                        recepcao: {
+                            recepcoes: parseInt(stat.recepcoes) || 0,
+                            alvos: parseInt(stat.alvos) || 0,
+                            drops: parseInt(stat.drops) || 0,
+                            jds_recepcao: parseInt(stat.jds_recepcao) || 0,
+                            jds_yac: parseInt(stat.jds_yac) || 0,
+                            tds_recepcao: parseInt(stat.tds_recepcao) || 0,
+                            recepcao_xp1: parseInt(stat.recepcao_xp1) || 0,
+                            recepcao_xp2: parseInt(stat.recepcao_xp2) || 0
                         },
                         defesa: {
-                            sack: parseInt(stat.sack) || 0,
-                            pressao: parseInt(stat.pressao) || 0,
-                            flag_retirada: parseInt(stat.flag_retirada) || 0,
-                            flag_perdida: parseInt(stat.flag_perdida) || 0,
-                            passe_desviado: parseInt(stat.passe_desviado) || 0,
-                            interceptacao_forcada: parseInt(stat.interceptacao_forcada) || 0,
-                            td_defensivo: parseInt(stat.td_defensivo) || 0
+                            tck: parseInt(stat.tck) || 0,
+                            tfl: parseInt(stat.tfl) || 0,
+                            pressao_pct: stat.pressao_pct_def || "0",
+                            sacks: parseInt(stat.sacks) || 0,
+                            tip: parseInt(stat.tip) || 0,
+                            int: parseInt(stat.int) || 0,
+                            tds_defesa: parseInt(stat.tds_defesa) || 0,
+                            defesa_xp2: parseInt(stat.defesa_xp2) || 0,
+                            sft: parseInt(stat.sft) || 0,
+                            sft_1: parseInt(stat.sft_1) || 0,
+                            blk: parseInt(stat.blk) || 0,
+                            jds_defesa: parseInt(stat.jds_defesa) || 0
                         }
                     };
 
@@ -2076,28 +2428,65 @@ mainRouter.post('/reprocessar-jogo', upload.single('arquivo'), async (req, res) 
                         estatisticas: estatisticasDoJogo
                     });
 
+                    // Verifica se a estrutura atual já é a nova
+                    const temNovaEstrutura =
+                        estatisticasAtuais.passe !== undefined ||
+                        estatisticasAtuais.corrida !== undefined ||
+                        estatisticasAtuais.recepcao !== undefined ||
+                        estatisticasAtuais.defesa !== undefined;
+
+                    // Inicializa estatísticas vazias na nova estrutura se necessário
+                    const baseEstatisticas = temNovaEstrutura ? estatisticasAtuais : {
+                        passe: {},
+                        corrida: {},
+                        recepcao: {},
+                        defesa: {}
+                    };
+
                     // Calcula as novas estatísticas totais
                     const novasEstatisticasTotais = {
-                        ataque: {
-                            passes_completos: (estatisticasAtuais.ataque?.passes_completos || 0) + estatisticasDoJogo.ataque.passes_completos,
-                            passes_tentados: (estatisticasAtuais.ataque?.passes_tentados || 0) + estatisticasDoJogo.ataque.passes_tentados,
-                            td_passado: (estatisticasAtuais.ataque?.td_passado || 0) + estatisticasDoJogo.ataque.td_passado,
-                            interceptacoes_sofridas: (estatisticasAtuais.ataque?.interceptacoes_sofridas || 0) + estatisticasDoJogo.ataque.interceptacoes_sofridas,
-                            sacks_sofridos: (estatisticasAtuais.ataque?.sacks_sofridos || 0) + estatisticasDoJogo.ataque.sacks_sofridos,
-                            corrida: (estatisticasAtuais.ataque?.corrida || 0) + estatisticasDoJogo.ataque.corrida,
-                            tds_corridos: (estatisticasAtuais.ataque?.tds_corridos || 0) + estatisticasDoJogo.ataque.tds_corridos,
-                            recepcao: (estatisticasAtuais.ataque?.recepcao || 0) + estatisticasDoJogo.ataque.recepcao,
-                            alvo: (estatisticasAtuais.ataque?.alvo || 0) + estatisticasDoJogo.ataque.alvo,
-                            td_recebido: (estatisticasAtuais.ataque?.td_recebido || 0) + estatisticasDoJogo.ataque.td_recebido
+                        passe: {
+                            passes_completos: (baseEstatisticas.passe?.passes_completos || 0) + estatisticasDoJogo.passe.passes_completos,
+                            passes_tentados: (baseEstatisticas.passe?.passes_tentados || 0) + estatisticasDoJogo.passe.passes_tentados,
+                            passes_incompletos: (baseEstatisticas.passe?.passes_incompletos || 0) + estatisticasDoJogo.passe.passes_incompletos,
+                            jds_passe: (baseEstatisticas.passe?.jds_passe || 0) + estatisticasDoJogo.passe.jds_passe,
+                            tds_passe: (baseEstatisticas.passe?.tds_passe || 0) + estatisticasDoJogo.passe.tds_passe,
+                            passe_xp1: (baseEstatisticas.passe?.passe_xp1 || 0) + estatisticasDoJogo.passe.passe_xp1,
+                            passe_xp2: (baseEstatisticas.passe?.passe_xp2 || 0) + estatisticasDoJogo.passe.passe_xp2,
+                            int_sofridas: (baseEstatisticas.passe?.int_sofridas || 0) + estatisticasDoJogo.passe.int_sofridas,
+                            sacks_sofridos: (baseEstatisticas.passe?.sacks_sofridos || 0) + estatisticasDoJogo.passe.sacks_sofridos,
+                            pressao_pct: estatisticasDoJogo.passe.pressao_pct // Substitui o valor, não soma
+                        },
+                        corrida: {
+                            corridas: (baseEstatisticas.corrida?.corridas || 0) + estatisticasDoJogo.corrida.corridas,
+                            jds_corridas: (baseEstatisticas.corrida?.jds_corridas || 0) + estatisticasDoJogo.corrida.jds_corridas,
+                            tds_corridos: (baseEstatisticas.corrida?.tds_corridos || 0) + estatisticasDoJogo.corrida.tds_corridos,
+                            corrida_xp1: (baseEstatisticas.corrida?.corrida_xp1 || 0) + estatisticasDoJogo.corrida.corrida_xp1,
+                            corrida_xp2: (baseEstatisticas.corrida?.corrida_xp2 || 0) + estatisticasDoJogo.corrida.corrida_xp2
+                        },
+                        recepcao: {
+                            recepcoes: (baseEstatisticas.recepcao?.recepcoes || 0) + estatisticasDoJogo.recepcao.recepcoes,
+                            alvos: (baseEstatisticas.recepcao?.alvos || 0) + estatisticasDoJogo.recepcao.alvos,
+                            drops: (baseEstatisticas.recepcao?.drops || 0) + estatisticasDoJogo.recepcao.drops,
+                            jds_recepcao: (baseEstatisticas.recepcao?.jds_recepcao || 0) + estatisticasDoJogo.recepcao.jds_recepcao,
+                            jds_yac: (baseEstatisticas.recepcao?.jds_yac || 0) + estatisticasDoJogo.recepcao.jds_yac,
+                            tds_recepcao: (baseEstatisticas.recepcao?.tds_recepcao || 0) + estatisticasDoJogo.recepcao.tds_recepcao,
+                            recepcao_xp1: (baseEstatisticas.recepcao?.recepcao_xp1 || 0) + estatisticasDoJogo.recepcao.recepcao_xp1,
+                            recepcao_xp2: (baseEstatisticas.recepcao?.recepcao_xp2 || 0) + estatisticasDoJogo.recepcao.recepcao_xp2
                         },
                         defesa: {
-                            sack: (estatisticasAtuais.defesa?.sack || 0) + estatisticasDoJogo.defesa.sack,
-                            pressao: (estatisticasAtuais.defesa?.pressao || 0) + estatisticasDoJogo.defesa.pressao,
-                            flag_retirada: (estatisticasAtuais.defesa?.flag_retirada || 0) + estatisticasDoJogo.defesa.flag_retirada,
-                            flag_perdida: (estatisticasAtuais.defesa?.flag_perdida || 0) + estatisticasDoJogo.defesa.flag_perdida,
-                            passe_desviado: (estatisticasAtuais.defesa?.passe_desviado || 0) + estatisticasDoJogo.defesa.passe_desviado,
-                            interceptacao_forcada: (estatisticasAtuais.defesa?.interceptacao_forcada || 0) + estatisticasDoJogo.defesa.interceptacao_forcada,
-                            td_defensivo: (estatisticasAtuais.defesa?.td_defensivo || 0) + estatisticasDoJogo.defesa.td_defensivo
+                            tck: (baseEstatisticas.defesa?.tck || 0) + estatisticasDoJogo.defesa.tck,
+                            tfl: (baseEstatisticas.defesa?.tfl || 0) + estatisticasDoJogo.defesa.tfl,
+                            pressao_pct: estatisticasDoJogo.defesa.pressao_pct, // Substitui o valor, não soma
+                            sacks: (baseEstatisticas.defesa?.sacks || 0) + estatisticasDoJogo.defesa.sacks,
+                            tip: (baseEstatisticas.defesa?.tip || 0) + estatisticasDoJogo.defesa.tip,
+                            int: (baseEstatisticas.defesa?.int || 0) + estatisticasDoJogo.defesa.int,
+                            tds_defesa: (baseEstatisticas.defesa?.tds_defesa || 0) + estatisticasDoJogo.defesa.tds_defesa,
+                            defesa_xp2: (baseEstatisticas.defesa?.defesa_xp2 || 0) + estatisticasDoJogo.defesa.defesa_xp2,
+                            sft: (baseEstatisticas.defesa?.sft || 0) + estatisticasDoJogo.defesa.sft,
+                            sft_1: (baseEstatisticas.defesa?.sft_1 || 0) + estatisticasDoJogo.defesa.sft_1,
+                            blk: (baseEstatisticas.defesa?.blk || 0) + estatisticasDoJogo.defesa.blk,
+                            jds_defesa: (baseEstatisticas.defesa?.jds_defesa || 0) + estatisticasDoJogo.defesa.jds_defesa
                         }
                     };
 

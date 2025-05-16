@@ -12,5 +12,7 @@ export const TimeSchema = z.object({
     instagram: z.string().optional(),
     instagram2: z.string().optional(),
     logo: z.string().optional(),
+    regiao: z.string().optional(),    
+    sexo: z.string().optional(),      
     jogadores: z.array(JogadorSchema).optional(),
 })
