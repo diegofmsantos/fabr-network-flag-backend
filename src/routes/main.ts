@@ -2561,4 +2561,103 @@ mainRouter.get('/jogador/:id/temporada/:ano', async (req, res) => {
     }
 });
 
+mainRouter.get('/jogos-processados', async (req, res) => {
+    try {
+        console.log('Rota /jogos-processados acessada');
+        
+        // Busca o registro de jogos processados
+        const metaDados = await prisma.metaDados.findFirst({
+            where: { chave: 'jogos_processados' }
+        });
+
+        // Caso de nenhum jogo processado
+        if (!metaDados || !metaDados.valor) {
+            console.log('Nenhum jogo processado encontrado');
+            res.status(200).json({ jogos: [] });
+            return; // Adicionado return explícito
+        }
+
+        // Limita o tamanho da resposta se for muito grande
+        if (metaDados.valor.length > 5000000) { // ~5MB
+            console.warn('Dados muito grandes, enviando versão simplificada');
+            res.status(200).json({ 
+                jogos: [],
+                error: 'Dados muito grandes para processar',
+                message: 'Por favor, contate o administrador do sistema'
+            });
+            return; // Adicionado return explícito
+        }
+
+        // Parse do JSON com tratamento de erro e limite de tamanho
+        // CORREÇÃO: Tipagem mais específica para evitar erros
+        let jogosProcessados: Record<string, any> = {};
+        try {
+            const parsed = JSON.parse(metaDados.valor);
+            
+            // Verificar se o resultado do parsing é realmente um objeto
+            if (typeof parsed !== 'object' || parsed === null) {
+                throw new Error('Formato de dados inválido');
+            }
+            
+            // Atribuição com tipagem correta
+            jogosProcessados = parsed as Record<string, any>;
+            
+            console.log(`Encontrados ${Object.keys(jogosProcessados).length} jogos processados`);
+        } catch (e) {
+            console.error('Erro ao fazer parse do JSON de jogos processados:', e);
+            res.status(200).json({ 
+                jogos: [],
+                error: 'Erro ao processar dados de jogos'
+            });
+            return; // Adicionado return explícito
+        }
+
+        // Limitamos a quantidade de jogos para evitar sobrecarga
+        const MAX_JOGOS = 100;
+        const jogoKeys = Object.keys(jogosProcessados).slice(0, MAX_JOGOS);
+        
+        // Transformar de forma otimizada
+        const jogosArray = [];
+        for (const id_jogo of jogoKeys) {
+            const dados = jogosProcessados[id_jogo];
+            if (dados && typeof dados === 'object') {
+                jogosArray.push({
+                    id_jogo,
+                    data_jogo: dados.dataJogo || 'Data desconhecida',
+                    processado_em: dados.processadoEm || new Date().toISOString(),
+                    reprocessado: !!dados.reprocessado
+                });
+            }
+        }
+
+        // Ordenar usando o método mais rápido possível
+        jogosArray.sort((a, b) => {
+            // Evitar conversão de data desnecessária se possível
+            const dateA = new Date(a.processado_em).getTime();
+            const dateB = new Date(b.processado_em).getTime();
+            
+            // Se datas inválidas, não quebrar a ordenação
+            if (isNaN(dateA) || isNaN(dateB)) return 0;
+            
+            return dateB - dateA; // Mais recente primeiro
+        });
+
+        // Resposta final com limite claro
+        res.status(200).json({ 
+            jogos: jogosArray,
+            total: Object.keys(jogosProcessados).length,
+            limit: MAX_JOGOS
+        });
+        return; // Adicionado return explícito
+        
+    } catch (error) {
+        console.error('Erro ao buscar jogos processados:', error);
+        res.status(200).json({ 
+            jogos: [],
+            error: 'Erro interno ao buscar jogos processados'
+        });
+        // Sem return aqui, é o fim da função
+    }
+});
+
 export default mainRouter
