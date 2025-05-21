@@ -725,19 +725,7 @@ function identificarJogadoresDestaque(time: any) {
         estatisticas: jt.estatisticas
     }));
 
-    // Categorias a avaliar
-    const destaques: {
-        ataque: {
-            passador: any | null;
-            corredor: any | null;
-            recebedor: any | null;
-        };
-        defesa: {
-            flagRetirada: any | null;
-            pressao: any | null;
-            interceptador: any | null;
-        };
-    } = {
+    const destaques = {
         ataque: {
             passador: null,
             corredor: null,
@@ -752,33 +740,37 @@ function identificarJogadoresDestaque(time: any) {
 
     // Encontrar melhor passador (TD passes)
     destaques.ataque.passador = jogadores
-        .filter((j: any) => j.estatisticas?.ataque?.td_passado > 0)
-        .sort((a: any, b: any) => (b.estatisticas?.ataque?.td_passado || 0) - (a.estatisticas?.ataque?.td_passado || 0))[0] || null;
+        .filter((j: any) => j.estatisticas?.passe?.tds_passe > 0)
+        .sort((a: any, b: any) => (b.estatisticas?.passe?.tds_passe || 0) - (a.estatisticas?.passe?.tds_passe || 0))[0] || null;
 
     // Encontrar melhor corredor (yards corridas)
     destaques.ataque.corredor = jogadores
-        .filter((j: any) => j.estatisticas?.ataque?.corrida > 0)
-        .sort((a: any, b: any) => (b.estatisticas?.ataque?.corrida || 0) - (a.estatisticas?.ataque?.corrida || 0))[0] || null;
+        .filter((j: any) => j.estatisticas?.corrida?.jds_corridas > 0)
+        .sort((a: any, b: any) => (b.estatisticas?.corrida?.jds_corridas || 0) - (a.estatisticas?.corrida?.jds_corridas || 0))[0] || null;
 
     // Encontrar melhor recebedor (TD recebidos)
     destaques.ataque.recebedor = jogadores
-        .filter((j: any) => j.estatisticas?.ataque?.td_recebido > 0)
-        .sort((a: any, b: any) => (b.estatisticas?.ataque?.td_recebido || 0) - (a.estatisticas?.ataque?.td_recebido || 0))[0] || null;
+        .filter((j: any) => j.estatisticas?.recepcao?.tds_recepcao > 0)
+        .sort((a: any, b: any) => (b.estatisticas?.recepcao?.tds_recepcao || 0) - (a.estatisticas?.recepcao?.tds_recepcao || 0))[0] || null;
 
-    // Encontrar melhor em flag retirada
+    // Encontrar melhor em flag retirada (usando tackles como aproximação)
     destaques.defesa.flagRetirada = jogadores
-        .filter((j: any) => j.estatisticas?.defesa?.flag_retirada > 0)
-        .sort((a: any, b: any) => (b.estatisticas?.defesa?.flag_retirada || 0) - (a.estatisticas?.defesa?.flag_retirada || 0))[0] || null;
+        .filter((j: any) => j.estatisticas?.defesa?.tck > 0)
+        .sort((a: any, b: any) => (b.estatisticas?.defesa?.tck || 0) - (a.estatisticas?.defesa?.tck || 0))[0] || null;
 
     // Encontrar melhor em pressão
     destaques.defesa.pressao = jogadores
-        .filter((j: any) => j.estatisticas?.defesa?.pressao > 0)
-        .sort((a: any, b: any) => (b.estatisticas?.defesa?.pressao || 0) - (a.estatisticas?.defesa?.pressao || 0))[0] || null;
+        .filter((j: any) => j.estatisticas?.defesa?.pressao_pct)
+        .sort((a: any, b: any) => {
+            const valA = parseFloat(a.estatisticas?.defesa?.pressao_pct || '0');
+            const valB = parseFloat(b.estatisticas?.defesa?.pressao_pct || '0');
+            return valB - valA;
+        })[0] || null;
 
     // Encontrar melhor interceptador
     destaques.defesa.interceptador = jogadores
-        .filter((j: any) => j.estatisticas?.defesa?.interceptacao_forcada > 0)
-        .sort((a: any, b: any) => (b.estatisticas?.defesa?.interceptacao_forcada || 0) - (a.estatisticas?.defesa?.interceptacao_forcada || 0))[0] || null;
+        .filter((j: any) => j.estatisticas?.defesa?.int > 0)
+        .sort((a: any, b: any) => (b.estatisticas?.defesa?.int || 0) - (a.estatisticas?.defesa?.int || 0))[0] || null;
 
     return destaques;
 }
