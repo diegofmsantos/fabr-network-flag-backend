@@ -31,7 +31,7 @@ export type Estatisticas = {
   defesa?: {
     tck?: number
     tfl?: number
-    pressao_pct?: string
+    pressao_pct_def?: string
     sacks?: number
     tip?: number
     int?: number
