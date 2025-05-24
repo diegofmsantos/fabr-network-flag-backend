@@ -54,3 +54,27 @@ export type Jogador = {
   camisa?: string
   estatisticas?: Estatisticas
 }
+
+export interface JogadorComHistorico {
+    id: number;
+    nome: string;
+    numero: number;
+    camisa: string;
+    estatisticas: any;
+    timeId: number;
+    time: {
+        id: number;
+        nome: string;
+        sigla: string;
+        cor: string;
+    } | null;
+    temporada: string;
+    historicoTemporadas?: Array<{
+        temporada: string;
+        time: {
+            id: number;
+            nome: string;
+            sigla: string;
+        } | null;
+    }>;
+}
